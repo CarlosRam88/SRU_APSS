@@ -33,7 +33,7 @@ export default function Home() {
   const [stats, setStats] = useState<ActivityStat[]>([]);
   const [selectedActivityId, setSelectedActivityId] = useState("");
 
-  const ALLOWED_TEAMS = ["Scotland U18", "Scotland U20", "Scotland U20 Female", "Scotland 7s", "ScottishRU", "SW Performance Squad"];
+  const ALLOWED_TEAMS = ["Scotland U18", "Scotland U20", "Scotland U20 Female", "Scotland7s", "ScottishRU", "SW Performance Squad"];
 
   useEffect(() => {
     fetch("/api/teams")
