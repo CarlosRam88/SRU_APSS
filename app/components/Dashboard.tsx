@@ -17,6 +17,7 @@ type PlayerStat = {
   total_distance: number;
   high_speed_distance?: number;
   high_speed_percentage?: number;
+  total_player_load?: number;
 };
 
 type DashboardProps = {

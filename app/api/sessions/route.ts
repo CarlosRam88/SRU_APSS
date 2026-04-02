@@ -20,6 +20,7 @@ export async function GET(request: Request) {
         parameters: [
           "athlete_name",
           "total_distance",
+          "total_player_load",
           "velocity_band4_total_distance",
           "velocity_band5_total_distance",
           "velocity_band6_total_distance",
@@ -56,6 +57,7 @@ export async function GET(request: Request) {
       total_distance: row.total_distance,
       high_speed_distance: hsd,
       high_speed_percentage: hsdPercentage,
+      total_player_load: row.total_player_load,
     };
   });
 
