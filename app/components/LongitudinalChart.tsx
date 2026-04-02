@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer,
+  Legend, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 
 export type ActivityStat = {
@@ -33,6 +33,59 @@ type Props = {
 type Metric = keyof Omit<ActivityStat, "activity_id" | "athlete_name" | "position">;
 type TimeMode = "daily" | "weekly";
 type Aggregation = "sum" | "average" | "rolling7" | "group_avg" | "position";
+type RefLineKey = "mean" | "median" | "sd_upper" | "sd_lower" | "q1" | "q3" | "p10" | "p90" | "max" | "min";
+
+const REF_LINE_LABELS: Record<RefLineKey, string> = {
+  mean:     "Mean",
+  median:   "Median",
+  sd_upper: "+1 SD",
+  sd_lower: "−1 SD",
+  q3:       "Upper Quartile",
+  q1:       "Lower Quartile",
+  p90:      "90th Percentile",
+  p10:      "10th Percentile",
+  max:      "Max",
+  min:      "Min",
+};
+
+const REF_LINE_COLORS: Record<RefLineKey, string> = {
+  mean:     "#facc15",
+  median:   "#34d399",
+  sd_upper: "#fb923c",
+  sd_lower: "#fb923c",
+  q3:       "#a78bfa",
+  q1:       "#a78bfa",
+  p90:      "#f472b6",
+  p10:      "#f472b6",
+  max:      "#f87171",
+  min:      "#2dd4bf",
+};
+
+function computeRefLines(values: number[]): Record<RefLineKey, number> {
+  const sorted = [...values].sort((a, b) => a - b);
+  const n = sorted.length;
+  const mean = values.reduce((a, b) => a + b, 0) / n;
+  const variance = values.reduce((a, b) => a + (b - mean) ** 2, 0) / n;
+  const sd = Math.sqrt(variance);
+  const percentile = (p: number) => {
+    const idx = (p / 100) * (n - 1);
+    const lo = Math.floor(idx);
+    const hi = Math.ceil(idx);
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+  };
+  return {
+    mean:     parseFloat(mean.toFixed(1)),
+    median:   parseFloat(percentile(50).toFixed(1)),
+    sd_upper: parseFloat((mean + sd).toFixed(1)),
+    sd_lower: parseFloat((mean - sd).toFixed(1)),
+    q3:       parseFloat(percentile(75).toFixed(1)),
+    q1:       parseFloat(percentile(25).toFixed(1)),
+    p90:      parseFloat(percentile(90).toFixed(1)),
+    p10:      parseFloat(percentile(10).toFixed(1)),
+    max:      sorted[n - 1],
+    min:      sorted[0],
+  };
+}
 
 const METRIC_LABELS: Record<Metric, string> = {
   total_distance: "Total Distance (m)",
@@ -112,6 +165,7 @@ export default function LongitudinalChart({ activities, stats }: Props) {
   const [timeMode, setTimeMode] = useState<TimeMode>("daily");
   const [aggregation, setAggregation] = useState<Aggregation>("sum");
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>(allAthletes.slice(0, 5));
+  const [activeRefLines, setActiveRefLines] = useState<RefLineKey[]>([]);
 
   // Keep selection in sync when stats change
   useMemo(() => {
@@ -248,6 +302,15 @@ export default function LongitudinalChart({ activities, stats }: Props) {
     return Object.keys(chartData[0]).filter((k) => k !== "date");
   }, [chartData]);
 
+  // Compute reference line values from all numeric values in the current chart
+  const refLineValues = useMemo(() => {
+    const allVals = chartData.flatMap((row) =>
+      lineKeys.map((k) => (row as Record<string, unknown>)[k]).filter((v): v is number => typeof v === "number" && v > 0)
+    );
+    if (allVals.length < 2) return null;
+    return computeRefLines(allVals);
+  }, [chartData, lineKeys]);
+
   function toggleAthlete(name: string) {
     setSelectedAthletes((prev) =>
       prev.includes(name) ? prev.filter((a) => a !== name) : [...prev, name]
@@ -339,6 +402,32 @@ export default function LongitudinalChart({ activities, stats }: Props) {
         </div>
       )}
 
+      {/* Reference lines */}
+      {refLineValues && (
+        <div className="mb-5">
+          <p className="text-xs text-[var(--bp-muted)] uppercase tracking-wider mb-1.5">Reference Lines</p>
+          <div className="flex flex-wrap gap-1.5">
+            {(Object.keys(REF_LINE_LABELS) as RefLineKey[]).map((key) => {
+              const active = activeRefLines.includes(key);
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveRefLines((prev) =>
+                    prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+                  )}
+                  className={`px-2.5 py-1 text-xs rounded border transition-colors ${
+                    active ? "border-transparent text-[var(--bp-bg)]" : "border-[var(--bp-border)] text-[var(--bp-muted)] hover:border-[var(--bp-accent)]/50"
+                  }`}
+                  style={active ? { backgroundColor: REF_LINE_COLORS[key] } : {}}
+                >
+                  {REF_LINE_LABELS[key]} ({refLineValues[key]})
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Position info */}
       {effectiveAggregation === "position" && allPositions.length === 0 && (
         <p className="text-xs text-[var(--bp-muted)] mb-4">No position data available for these activities.</p>
@@ -364,6 +453,16 @@ export default function LongitudinalChart({ activities, stats }: Props) {
               strokeWidth={2}
               dot={{ r: 3 }}
               activeDot={{ r: 5 }}
+            />
+          ))}
+          {refLineValues && activeRefLines.map((key) => (
+            <ReferenceLine
+              key={key}
+              y={refLineValues[key]}
+              stroke={REF_LINE_COLORS[key]}
+              strokeDasharray="4 3"
+              strokeWidth={1.5}
+              label={{ value: `${REF_LINE_LABELS[key]}: ${refLineValues[key]}`, fill: REF_LINE_COLORS[key], fontSize: 10, position: "insideTopRight" }}
             />
           ))}
         </LineChart>
