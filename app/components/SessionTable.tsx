@@ -10,6 +10,7 @@ type Player = {
   total_player_load?: number;
   rhie_bout_count?: number;
   percentage_max_velocity?: number;
+  position?: string | null;
 };
 
 type SessionTableProps = {
@@ -25,9 +26,42 @@ type SortColumn =
   | "rhie_bout_count"
   | "percentage_max_velocity";
 
+const NUMERIC_COLS: SortColumn[] = [
+  "total_distance",
+  "high_speed_distance",
+  "high_speed_percentage",
+  "total_player_load",
+  "rhie_bout_count",
+  "percentage_max_velocity",
+];
+
+const MEDALS = ["🥇", "🥈", "🥉"];
+
 export default function SessionTable({ sessions }: SessionTableProps) {
   const [sortColumn, setSortColumn] = useState<SortColumn>("total_distance");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  // For each numeric column, map value -> medal index (0=gold, 1=silver, 2=bronze)
+  const medalMap = useMemo(() => {
+    const result: Record<string, Map<number, number>> = {};
+    NUMERIC_COLS.forEach((col) => {
+      const vals = sessions
+        .map((p) => p[col] as number | undefined)
+        .filter((v): v is number => v !== undefined && v > 0)
+        .sort((a, b) => b - a);
+      const top3 = [...new Set(vals)].slice(0, 3);
+      const map = new Map<number, number>();
+      top3.forEach((v, i) => map.set(v, i));
+      result[col] = map;
+    });
+    return result;
+  }, [sessions]);
+
+  function getMedal(col: SortColumn, value: number | undefined): string {
+    if (value === undefined || value === 0) return "";
+    const rank = medalMap[col]?.get(value);
+    return rank !== undefined ? MEDALS[rank] : "";
+  }
 
   const sortedSessions = useMemo(() => {
     const sorted = [...sessions].sort((a, b) => {
@@ -72,7 +106,7 @@ export default function SessionTable({ sessions }: SessionTableProps) {
               Total Distance (m){arrow("total_distance")}
             </th>
             <th className={thClass} onClick={() => handleSort("high_speed_distance")}>
-              High Speed Distance (m){arrow("high_speed_distance")}
+              HSD (m){arrow("high_speed_distance")}
             </th>
             <th className={thClass} onClick={() => handleSort("high_speed_percentage")}>
               HSR %{arrow("high_speed_percentage")}
@@ -91,30 +125,42 @@ export default function SessionTable({ sessions }: SessionTableProps) {
         <tbody>
           {sortedSessions.map((player, index) => (
             <tr key={index} className="hover:bg-[var(--bp-border)]/20 transition-colors">
-              <td className={`${tdClass} text-[var(--bp-text)] font-medium`}>{player.athlete_name}</td>
-              <td className={`${tdClass} text-[var(--bp-accent)]`}>{Math.round(player.total_distance)}</td>
-              <td className={`${tdClass} text-[var(--bp-text)]`}>
-                {player.high_speed_distance !== undefined
-                  ? Math.round(player.high_speed_distance)
-                  : "—"}
+              <td className={`${tdClass} text-[var(--bp-text)] font-medium`}>
+                {player.athlete_name}
+                {player.position && (
+                  <span className="ml-2 text-[10px] text-[var(--bp-muted)] uppercase tracking-wider">
+                    {player.position}
+                  </span>
+                )}
+              </td>
+              <td className={`${tdClass} text-[var(--bp-accent)]`}>
+                {Math.round(player.total_distance)}
+                <span className="ml-1">{getMedal("total_distance", player.total_distance)}</span>
               </td>
               <td className={`${tdClass} text-[var(--bp-text)]`}>
-                {player.high_speed_percentage !== undefined
-                  ? `${player.high_speed_percentage.toFixed(1)}%`
-                  : "—"}
+                {player.high_speed_distance !== undefined ? (
+                  <>{Math.round(player.high_speed_distance)}<span className="ml-1">{getMedal("high_speed_distance", player.high_speed_distance)}</span></>
+                ) : "—"}
               </td>
               <td className={`${tdClass} text-[var(--bp-text)]`}>
-                {player.total_player_load !== undefined
-                  ? Math.round(player.total_player_load)
-                  : "—"}
+                {player.high_speed_percentage !== undefined ? (
+                  <>{player.high_speed_percentage.toFixed(1)}%<span className="ml-1">{getMedal("high_speed_percentage", player.high_speed_percentage)}</span></>
+                ) : "—"}
               </td>
               <td className={`${tdClass} text-[var(--bp-text)]`}>
-                {player.rhie_bout_count !== undefined ? player.rhie_bout_count : "—"}
+                {player.total_player_load !== undefined ? (
+                  <>{Math.round(player.total_player_load)}<span className="ml-1">{getMedal("total_player_load", player.total_player_load)}</span></>
+                ) : "—"}
               </td>
               <td className={`${tdClass} text-[var(--bp-text)]`}>
-                {player.percentage_max_velocity !== undefined
-                  ? `${player.percentage_max_velocity.toFixed(1)}%`
-                  : "—"}
+                {player.rhie_bout_count !== undefined ? (
+                  <>{player.rhie_bout_count}<span className="ml-1">{getMedal("rhie_bout_count", player.rhie_bout_count)}</span></>
+                ) : "—"}
+              </td>
+              <td className={`${tdClass} text-[var(--bp-text)]`}>
+                {player.percentage_max_velocity !== undefined ? (
+                  <>{player.percentage_max_velocity.toFixed(1)}%<span className="ml-1">{getMedal("percentage_max_velocity", player.percentage_max_velocity)}</span></>
+                ) : "—"}
               </td>
             </tr>
           ))}
