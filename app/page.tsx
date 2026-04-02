@@ -98,9 +98,9 @@ export default function Home() {
       <div className="mb-6 border-b border-[var(--bp-border)] pb-4 flex items-center gap-5">
         <img src="/Scotlandlogo.png" alt="Scottish Rugby" className="h-16 w-auto" />
         <div>
-          <p className="text-xs uppercase tracking-widest text-[var(--bp-muted)] mb-1">Scottish Rugby Athletic Performance</p>
+          <p className="text-xs uppercase tracking-widest text-[var(--bp-muted)] mb-1">Scottish Rugby Athletic Performance and Sport Science</p>
           <h1 className="text-3xl font-semibold text-[var(--bp-accent)] tracking-tight">
-            Catapult Dashboard Prototype
+            Catapult Dashboard - Prototype
           </h1>
         </div>
       </div>
