@@ -43,14 +43,30 @@ export default function Home() {
       });
   }, []);
 
-  // Keep shared stats in sync when activities change (used by both Visuals and Chat)
+  // Fetch stats + positions in parallel, then join position onto each stat row
   useEffect(() => {
     if (activities.length === 0) { setStats([]); return; }
     const params = new URLSearchParams();
     activities.forEach((a) => params.append("activityIds", a.id));
-    fetch(`/api/stats-range?${params.toString()}`)
-      .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setStats(data); });
+    const qs = params.toString();
+    Promise.all([
+      fetch(`/api/stats-range?${qs}`).then((r) => r.json()),
+      fetch(`/api/activity-athletes?${qs}`).then((r) => r.json()),
+    ]).then(([statsData, athletesData]) => {
+      if (!Array.isArray(statsData)) return;
+      // Build lookup: "activityId|athleteName" -> position
+      const positionMap = new Map<string, string>();
+      if (Array.isArray(athletesData)) {
+        athletesData.forEach((a: any) => {
+          if (a.position) positionMap.set(`${a.activity_id}|${a.athlete_name}`, a.position);
+        });
+      }
+      const enriched = statsData.map((s: ActivityStat) => ({
+        ...s,
+        position: positionMap.get(`${s.activity_id}|${s.athlete_name}`) ?? null,
+      }));
+      setStats(enriched);
+    });
   }, [activities]);
 
   async function handleFetch() {

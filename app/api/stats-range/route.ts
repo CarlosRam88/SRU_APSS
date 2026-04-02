@@ -26,6 +26,9 @@ export async function GET(request: Request) {
               "velocity_band6_total_distance",
               "velocity_band7_total_distance",
               "velocity_band8_total_distance",
+              "total_player_load",
+              "rhie_bout_count",
+              "percentage_max_velocity",
             ],
             group_by: ["athlete"],
             filters: [
@@ -53,6 +56,9 @@ export async function GET(request: Request) {
           high_speed_distance: hsd,
           high_speed_percentage:
             row.total_distance > 0 ? (hsd / row.total_distance) * 100 : 0,
+          total_player_load: row.total_player_load || 0,
+          rhie_bout_count: row.rhie_bout_count || 0,
+          percentage_max_velocity: row.percentage_max_velocity || 0,
         };
       });
     })
