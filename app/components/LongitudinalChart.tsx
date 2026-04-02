@@ -86,6 +86,28 @@ export default function LongitudinalChart({ activities, stats }: Props) {
     [stats]
   );
 
+  // Stable colour assigned to each athlete by their index in allAthletes
+  const athleteColorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    allAthletes.forEach((name, i) => map.set(name, LINE_COLORS[i % LINE_COLORS.length]));
+    return map;
+  }, [allAthletes]);
+
+  // Group athletes by their most common position across loaded stats
+  const athletesByPosition = useMemo(() => {
+    const posMap = new Map<string, string>();
+    stats.forEach((s) => {
+      if (s.position && !posMap.has(s.athlete_name)) posMap.set(s.athlete_name, s.position);
+    });
+    const groups = new Map<string, string[]>();
+    allAthletes.forEach((name) => {
+      const pos = posMap.get(name) ?? "Unknown";
+      if (!groups.has(pos)) groups.set(pos, []);
+      groups.get(pos)!.push(name);
+    });
+    return groups;
+  }, [allAthletes, stats]);
+
   const [metric, setMetric] = useState<Metric>("total_distance");
   const [timeMode, setTimeMode] = useState<TimeMode>("daily");
   const [aggregation, setAggregation] = useState<Aggregation>("sum");
@@ -288,22 +310,31 @@ export default function LongitudinalChart({ activities, stats }: Props) {
         </div>
       </div>
 
-      {/* Player selector */}
+      {/* Player selector grouped by position */}
       {showPlayerSelector && (
-        <div className="flex flex-wrap gap-2 mb-5">
-          {allAthletes.map((name, i) => (
-            <button
-              key={name}
-              onClick={() => toggleAthlete(name)}
-              className={`px-2.5 py-1 text-xs rounded border transition-colors ${
-                selectedAthletes.includes(name)
-                  ? "border-transparent text-[var(--bp-bg)]"
-                  : "border-[var(--bp-border)] text-[var(--bp-muted)]"
-              }`}
-              style={selectedAthletes.includes(name) ? { backgroundColor: LINE_COLORS[i % LINE_COLORS.length] } : {}}
-            >
-              {name}
-            </button>
+        <div className="flex flex-wrap gap-x-6 gap-y-3 mb-5">
+          {Array.from(athletesByPosition.entries()).map(([position, names]) => (
+            <div key={position}>
+              <p className="text-[10px] uppercase tracking-widest text-[var(--bp-muted)] mb-1.5">{position}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {names.map((name) => {
+                  const color = athleteColorMap.get(name)!;
+                  const active = selectedAthletes.includes(name);
+                  return (
+                    <button
+                      key={name}
+                      onClick={() => toggleAthlete(name)}
+                      className={`px-2.5 py-1 text-xs rounded border transition-colors ${
+                        active ? "border-transparent text-[var(--bp-bg)]" : "border-[var(--bp-border)] text-[var(--bp-muted)]"
+                      }`}
+                      style={active ? { backgroundColor: color } : {}}
+                    >
+                      {name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -324,12 +355,12 @@ export default function LongitudinalChart({ activities, stats }: Props) {
             itemStyle={{ color: "var(--bp-text)" }}
           />
           <Legend wrapperStyle={{ fontSize: 12, color: "var(--bp-muted)" }} />
-          {lineKeys.map((key, i) => (
+          {lineKeys.map((key) => (
             <Line
               key={key}
               type="monotone"
               dataKey={key}
-              stroke={LINE_COLORS[i % LINE_COLORS.length]}
+              stroke={athleteColorMap.get(key) ?? LINE_COLORS[0]}
               strokeWidth={2}
               dot={{ r: 3 }}
               activeDot={{ r: 5 }}
