@@ -18,6 +18,8 @@ type PlayerStat = {
   high_speed_distance?: number;
   high_speed_percentage?: number;
   total_player_load?: number;
+  rhie_bout_count?: number;
+  percentage_max_velocity?: number;
 };
 
 type DashboardProps = {

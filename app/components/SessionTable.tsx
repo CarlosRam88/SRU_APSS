@@ -8,6 +8,8 @@ type Player = {
   high_speed_distance?: number;
   high_speed_percentage?: number;
   total_player_load?: number;
+  rhie_bout_count?: number;
+  percentage_max_velocity?: number;
 };
 
 type SessionTableProps = {
@@ -19,7 +21,9 @@ type SortColumn =
   | "total_distance"
   | "high_speed_distance"
   | "high_speed_percentage"
-  | "total_player_load";
+  | "total_player_load"
+  | "rhie_bout_count"
+  | "percentage_max_velocity";
 
 export default function SessionTable({ sessions }: SessionTableProps) {
   const [sortColumn, setSortColumn] = useState<SortColumn>("total_distance");
@@ -76,6 +80,12 @@ export default function SessionTable({ sessions }: SessionTableProps) {
             <th className={thClass} onClick={() => handleSort("total_player_load")}>
               Player Load{arrow("total_player_load")}
             </th>
+            <th className={thClass} onClick={() => handleSort("rhie_bout_count")}>
+              RHIE Bouts{arrow("rhie_bout_count")}
+            </th>
+            <th className={thClass} onClick={() => handleSort("percentage_max_velocity")}>
+              % Max Vel.{arrow("percentage_max_velocity")}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -96,6 +106,14 @@ export default function SessionTable({ sessions }: SessionTableProps) {
               <td className={`${tdClass} text-[var(--bp-text)]`}>
                 {player.total_player_load !== undefined
                   ? Math.round(player.total_player_load)
+                  : "—"}
+              </td>
+              <td className={`${tdClass} text-[var(--bp-text)]`}>
+                {player.rhie_bout_count !== undefined ? player.rhie_bout_count : "—"}
+              </td>
+              <td className={`${tdClass} text-[var(--bp-text)]`}>
+                {player.percentage_max_velocity !== undefined
+                  ? `${player.percentage_max_velocity.toFixed(1)}%`
                   : "—"}
               </td>
             </tr>

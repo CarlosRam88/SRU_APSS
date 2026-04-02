@@ -21,6 +21,8 @@ export async function GET(request: Request) {
           "athlete_name",
           "total_distance",
           "total_player_load",
+          "rhie_bout_count",
+          "percentage_max_velocity",
           "velocity_band4_total_distance",
           "velocity_band5_total_distance",
           "velocity_band6_total_distance",
@@ -58,6 +60,8 @@ export async function GET(request: Request) {
       high_speed_distance: hsd,
       high_speed_percentage: hsdPercentage,
       total_player_load: row.total_player_load,
+      rhie_bout_count: row.rhie_bout_count || 0,
+      percentage_max_velocity: row.percentage_max_velocity || 0,
     };
   });
 
