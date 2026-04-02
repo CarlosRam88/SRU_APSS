@@ -36,20 +36,27 @@ function buildContext(activities: Activity[], stats: ActivityStat[], selectedAct
   const selectedLines = selectedStats.length > 0
     ? selectedStats
         .sort((a, b) => b.total_distance - a.total_distance)
-        .map((s) => `  - ${s.athlete_name}: total_distance=${Math.round(s.total_distance)}m, high_speed_distance=${Math.round(s.high_speed_distance)}m, hsr=${s.high_speed_percentage.toFixed(1)}%`)
+        .map((s) => `  - ${s.athlete_name}: total_distance=${Math.round(s.total_distance)}m, hsd=${Math.round(s.high_speed_distance)}m, hsr=${s.high_speed_percentage.toFixed(1)}%, player_load=${s.total_player_load.toFixed(1)}, rhie_bouts=${s.rhie_bout_count}, pct_max_velocity=${s.percentage_max_velocity.toFixed(1)}%`)
         .join("\n")
     : "  No stats available.";
 
   // Aggregated totals across all loaded activities
-  const byAthlete = new Map<string, { total_distance: number; high_speed_distance: number; hsr_values: number[]; sessions: number }>();
+  const byAthlete = new Map<string, {
+    total_distance: number; high_speed_distance: number; hsr_values: number[];
+    total_player_load: number; rhie_bout_count: number; pct_max_velocity_values: number[];
+    sessions: number;
+  }>();
   stats.forEach((s) => {
     if (!byAthlete.has(s.athlete_name)) {
-      byAthlete.set(s.athlete_name, { total_distance: 0, high_speed_distance: 0, hsr_values: [], sessions: 0 });
+      byAthlete.set(s.athlete_name, { total_distance: 0, high_speed_distance: 0, hsr_values: [], total_player_load: 0, rhie_bout_count: 0, pct_max_velocity_values: [], sessions: 0 });
     }
     const entry = byAthlete.get(s.athlete_name)!;
     entry.total_distance += s.total_distance;
     entry.high_speed_distance += s.high_speed_distance;
     entry.hsr_values.push(s.high_speed_percentage);
+    entry.total_player_load += s.total_player_load;
+    entry.rhie_bout_count += s.rhie_bout_count;
+    entry.pct_max_velocity_values.push(s.percentage_max_velocity);
     entry.sessions += 1;
   });
 
@@ -57,7 +64,8 @@ function buildContext(activities: Activity[], stats: ActivityStat[], selectedAct
     .sort((a, b) => b[1].total_distance - a[1].total_distance)
     .map(([name, d]) => {
       const avgHSR = d.hsr_values.reduce((a, b) => a + b, 0) / d.hsr_values.length;
-      return `  - ${name}: total_distance=${Math.round(d.total_distance)}m, high_speed_distance=${Math.round(d.high_speed_distance)}m, avg_hsr=${avgHSR.toFixed(1)}%, sessions=${d.sessions}`;
+      const avgPctMaxVel = d.pct_max_velocity_values.reduce((a, b) => a + b, 0) / d.pct_max_velocity_values.length;
+      return `  - ${name}: total_distance=${Math.round(d.total_distance)}m, hsd=${Math.round(d.high_speed_distance)}m, avg_hsr=${avgHSR.toFixed(1)}%, total_player_load=${d.total_player_load.toFixed(1)}, total_rhie_bouts=${d.rhie_bout_count}, avg_pct_max_velocity=${avgPctMaxVel.toFixed(1)}%, sessions=${d.sessions}`;
     })
     .join("\n");
 

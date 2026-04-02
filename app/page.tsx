@@ -133,13 +133,18 @@ export default function Home() {
             </div>
           </div>
         )}
-        <button
-          onClick={handleFetch}
-          disabled={loading}
-          className="px-5 py-2 rounded text-sm font-medium tracking-wide transition-colors bg-[var(--bp-accent)] text-[var(--bp-bg)] hover:bg-[var(--bp-accent-dim)] disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? "Loading…" : "Fetch Activities"}
-        </button>
+        <div>
+          <button
+            onClick={handleFetch}
+            disabled={loading || selectedTeamIds.length === 0}
+            className="px-5 py-2 rounded text-sm font-medium tracking-wide transition-colors bg-[var(--bp-accent)] text-[var(--bp-bg)] hover:bg-[var(--bp-accent-dim)] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? "Loading…" : "Fetch Activities"}
+          </button>
+          {selectedTeamIds.length === 0 && (
+            <p className="text-xs text-[var(--bp-muted)] mt-1.5">Select at least one team to fetch.</p>
+          )}
+        </div>
       </div>
 
       {/* Tab navigation */}
