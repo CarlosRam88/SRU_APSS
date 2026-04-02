@@ -166,6 +166,7 @@ export default function LongitudinalChart({ activities, stats }: Props) {
   const [aggregation, setAggregation] = useState<Aggregation>("sum");
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>(allAthletes.slice(0, 5));
   const [activeRefLines, setActiveRefLines] = useState<RefLineKey[]>([]);
+  const [collapsedPositions, setCollapsedPositions] = useState<Set<string>>(new Set());
 
   // Keep selection in sync when stats change
   useMemo(() => {
@@ -375,30 +376,47 @@ export default function LongitudinalChart({ activities, stats }: Props) {
 
       {/* Player selector grouped by position */}
       {showPlayerSelector && (
-        <div className="flex flex-wrap gap-x-6 gap-y-3 mb-5">
-          {Array.from(athletesByPosition.entries()).map(([position, names]) => (
-            <div key={position}>
-              <p className="text-[10px] uppercase tracking-widest text-[var(--bp-muted)] mb-1.5">{position}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {names.map((name) => {
-                  const color = athleteColorMap.get(name)!;
-                  const active = selectedAthletes.includes(name);
-                  return (
-                    <button
-                      key={name}
-                      onClick={() => toggleAthlete(name)}
-                      className={`px-2.5 py-1 text-xs rounded border transition-colors ${
-                        active ? "border-transparent text-[var(--bp-bg)]" : "border-[var(--bp-border)] text-[var(--bp-muted)]"
-                      }`}
-                      style={active ? { backgroundColor: color } : {}}
-                    >
-                      {name}
-                    </button>
-                  );
-                })}
+        <div className="flex flex-wrap gap-x-6 gap-y-2 mb-5">
+          {Array.from(athletesByPosition.entries()).map(([position, names]) => {
+            const collapsed = collapsedPositions.has(position);
+            const activeCount = names.filter((n) => selectedAthletes.includes(n)).length;
+            return (
+              <div key={position}>
+                <button
+                  onClick={() => setCollapsedPositions((prev) => {
+                    const next = new Set(prev);
+                    next.has(position) ? next.delete(position) : next.add(position);
+                    return next;
+                  })}
+                  className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-[var(--bp-muted)] hover:text-[var(--bp-accent)] transition-colors mb-1.5"
+                >
+                  <span>{collapsed ? "▶" : "▼"}</span>
+                  {position}
+                  <span className="text-[var(--bp-border)]">({activeCount}/{names.length})</span>
+                </button>
+                {!collapsed && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {names.map((name) => {
+                      const color = athleteColorMap.get(name)!;
+                      const active = selectedAthletes.includes(name);
+                      return (
+                        <button
+                          key={name}
+                          onClick={() => toggleAthlete(name)}
+                          className={`px-2.5 py-1 text-xs rounded border transition-colors ${
+                            active ? "border-transparent text-[var(--bp-bg)]" : "border-[var(--bp-border)] text-[var(--bp-muted)]"
+                          }`}
+                          style={active ? { backgroundColor: color } : {}}
+                        >
+                          {name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
