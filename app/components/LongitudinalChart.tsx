@@ -166,7 +166,7 @@ export default function LongitudinalChart({ activities, stats }: Props) {
   const [aggregation, setAggregation] = useState<Aggregation>("sum");
   const [selectedAthletes, setSelectedAthletes] = useState<string[]>(allAthletes.slice(0, 5));
   const [activeRefLines, setActiveRefLines] = useState<RefLineKey[]>([]);
-  const [collapsedPositions, setCollapsedPositions] = useState<Set<string>>(new Set());
+  const [expandedPositions, setExpandedPositions] = useState<Set<string>>(new Set());
 
   // Keep selection in sync when stats change
   useMemo(() => {
@@ -378,23 +378,23 @@ export default function LongitudinalChart({ activities, stats }: Props) {
       {showPlayerSelector && (
         <div className="flex flex-wrap gap-x-6 gap-y-2 mb-5">
           {Array.from(athletesByPosition.entries()).map(([position, names]) => {
-            const collapsed = collapsedPositions.has(position);
+            const expanded = expandedPositions.has(position);
             const activeCount = names.filter((n) => selectedAthletes.includes(n)).length;
             return (
               <div key={position}>
                 <button
-                  onClick={() => setCollapsedPositions((prev) => {
+                  onClick={() => setExpandedPositions((prev: Set<string>) => {
                     const next = new Set(prev);
                     next.has(position) ? next.delete(position) : next.add(position);
                     return next;
                   })}
                   className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-[var(--bp-muted)] hover:text-[var(--bp-accent)] transition-colors mb-1.5"
                 >
-                  <span>{collapsed ? "▶" : "▼"}</span>
+                  <span>{expanded ? "▼" : "▶"}</span>
                   {position}
                   <span className="text-[var(--bp-border)]">({activeCount}/{names.length})</span>
                 </button>
-                {!collapsed && (
+                {expanded && (
                   <div className="flex flex-wrap gap-1.5">
                     {names.map((name) => {
                       const color = athleteColorMap.get(name)!;
