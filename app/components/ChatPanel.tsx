@@ -36,7 +36,7 @@ function buildContext(activities: Activity[], stats: ActivityStat[], selectedAct
   const selectedLines = selectedStats.length > 0
     ? selectedStats
         .sort((a, b) => b.total_distance - a.total_distance)
-        .map((s) => `  - ${s.athlete_name}: total_distance=${Math.round(s.total_distance)}m, hsd=${Math.round(s.high_speed_distance)}m, hsr=${s.high_speed_percentage.toFixed(1)}%, player_load=${s.total_player_load.toFixed(1)}, rhie_bouts=${s.rhie_bout_count}, pct_max_velocity=${s.percentage_max_velocity.toFixed(1)}%`)
+        .map((s) => `  - ${s.athlete_name}${s.position ? ` (${s.position})` : ""}: total_distance=${Math.round(s.total_distance)}m, hsd=${Math.round(s.high_speed_distance)}m, hsr=${s.high_speed_percentage.toFixed(1)}%, player_load=${s.total_player_load.toFixed(1)}, rhie_bouts=${s.rhie_bout_count}, pct_max_velocity=${s.percentage_max_velocity.toFixed(1)}%`)
         .join("\n")
     : "  No stats available.";
 
@@ -44,11 +44,11 @@ function buildContext(activities: Activity[], stats: ActivityStat[], selectedAct
   const byAthlete = new Map<string, {
     total_distance: number; high_speed_distance: number; hsr_values: number[];
     total_player_load: number; rhie_bout_count: number; pct_max_velocity_values: number[];
-    sessions: number;
+    sessions: number; position: string | null;
   }>();
   stats.forEach((s) => {
     if (!byAthlete.has(s.athlete_name)) {
-      byAthlete.set(s.athlete_name, { total_distance: 0, high_speed_distance: 0, hsr_values: [], total_player_load: 0, rhie_bout_count: 0, pct_max_velocity_values: [], sessions: 0 });
+      byAthlete.set(s.athlete_name, { total_distance: 0, high_speed_distance: 0, hsr_values: [], total_player_load: 0, rhie_bout_count: 0, pct_max_velocity_values: [], sessions: 0, position: s.position ?? null });
     }
     const entry = byAthlete.get(s.athlete_name)!;
     entry.total_distance += s.total_distance;
@@ -58,6 +58,7 @@ function buildContext(activities: Activity[], stats: ActivityStat[], selectedAct
     entry.rhie_bout_count += s.rhie_bout_count;
     entry.pct_max_velocity_values.push(s.percentage_max_velocity);
     entry.sessions += 1;
+    if (!entry.position && s.position) entry.position = s.position;
   });
 
   const allTimeLines = Array.from(byAthlete.entries())
@@ -65,7 +66,7 @@ function buildContext(activities: Activity[], stats: ActivityStat[], selectedAct
     .map(([name, d]) => {
       const avgHSR = d.hsr_values.reduce((a, b) => a + b, 0) / d.hsr_values.length;
       const avgPctMaxVel = d.pct_max_velocity_values.reduce((a, b) => a + b, 0) / d.pct_max_velocity_values.length;
-      return `  - ${name}: total_distance=${Math.round(d.total_distance)}m, hsd=${Math.round(d.high_speed_distance)}m, avg_hsr=${avgHSR.toFixed(1)}%, total_player_load=${d.total_player_load.toFixed(1)}, total_rhie_bouts=${d.rhie_bout_count}, avg_pct_max_velocity=${avgPctMaxVel.toFixed(1)}%, sessions=${d.sessions}`;
+      return `  - ${name}: total_distance=${Math.round(d.total_distance)}m, hsd=${Math.round(d.high_speed_distance)}m, avg_hsr=${avgHSR.toFixed(1)}%, total_player_load=${d.total_player_load.toFixed(1)}, total_rhie_bouts=${d.rhie_bout_count}, avg_pct_max_velocity=${avgPctMaxVel.toFixed(1)}%, sessions=${d.sessions}${d.position ? `, position=${d.position}` : ""}`;
     })
     .join("\n");
 
@@ -161,10 +162,11 @@ export default function ChatPanel({ activities, stats, selectedActivityId, isOpe
             <div className="text-[var(--bp-muted)] text-sm mt-4 space-y-2">
               <p>Ask questions about your loaded data, for example:</p>
               <ul className="space-y-1 list-disc list-inside text-xs">
-                <li>Who covered the most distance?</li>
-                <li>Which player had the highest HSR%?</li>
-                <li>Compare the top 3 players by high speed distance</li>
-                <li>What was the average total distance across all sessions?</li>
+                <li>Who had the highest player load in this session?</li>
+                <li>Compare the forwards vs backs by total distance</li>
+                <li>Which player had the most RHIE bouts across all sessions?</li>
+                <li>Who is hitting the highest % of their max velocity?</li>
+                <li>Summarise the load for this session</li>
               </ul>
             </div>
           )}

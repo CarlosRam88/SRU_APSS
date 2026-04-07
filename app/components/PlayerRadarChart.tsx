@@ -95,6 +95,18 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
     if (allAthletes.length === 0 || activeMetrics.length === 0) return [];
     const metricKeys = activeMetrics.map((m) => m.key);
 
+    // Compute per-metric range across ALL athletes so normalization is consistent
+    // and shape genuinely reflects standing within the squad (not just ratio to baseline)
+    const allAthleteValues = allAthletes.map((a) =>
+      aggregatePlayer(stats.filter((s) => s.athlete_name === a), metricKeys, aggMode)
+    );
+    const squadRange = Object.fromEntries(
+      metricKeys.map((k) => {
+        const vals = allAthleteValues.map((v) => v[k] as number);
+        return [k, { min: Math.min(...vals), max: Math.max(...vals) }];
+      })
+    );
+
     if (compareMode === "multi") {
       const aggregated = [playerA, playerB].map((athlete) => ({
         athlete,
@@ -102,12 +114,10 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
       }));
 
       return activeMetrics.map(({ key, label }) => {
-        const allVals = aggregated.map((a) => a.values[key]);
-        const min = Math.min(...allVals) * 0.8;
-        const max = Math.max(...allVals) * 1.2;
+        const { min, max } = squadRange[key];
         const row: Record<string, string | number> = { metric: label };
         aggregated.forEach(({ athlete, values }) => {
-          row[athlete] = normalize(values[key], min, max);
+          row[athlete] = normalize(values[key] as number, min, max);
           row[`${athlete}_raw`] = parseFloat((values[key] as number).toFixed(1));
         });
         return row;
@@ -145,10 +155,9 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
     }
 
     return activeMetrics.map(({ key, label }) => {
+      const { min, max } = squadRange[key];
       const sVal = subject[key] as number;
       const bVal = baseline[key] as number;
-      const min = Math.min(sVal, bVal) * 0.8;
-      const max = Math.max(sVal, bVal) * 1.2;
       return {
         metric: label,
         [selectedAthlete]: normalize(sVal, min, max),

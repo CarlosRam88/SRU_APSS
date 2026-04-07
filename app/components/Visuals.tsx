@@ -56,12 +56,6 @@ export default function Visuals({ activities, stats, hasFetched, loading }: Prop
     return stats.filter((s) => ids.has(s.activity_id));
   }, [stats, filteredActivities]);
 
-  function toggleDayCode(code: string) {
-    setSelectedDayCodes((prev) =>
-      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
-    );
-  }
-
   const hasFilters = fromDate || toDate || selectedDayCodes.length > 0;
 
   if (!hasFetched || loading) {
@@ -83,7 +77,6 @@ export default function Visuals({ activities, stats, hasFetched, loading }: Prop
   const inputClass = "bg-[var(--bp-bg)] border border-[var(--bp-border)] text-[var(--bp-text)] text-sm rounded px-3 py-2 focus:outline-none focus:border-[var(--bp-accent)] cursor-pointer";
   const labelClass = "text-xs uppercase tracking-wider text-[var(--bp-muted)]";
   const btnBase = "px-2.5 py-1 text-xs rounded border transition-colors";
-  const btnActive = "border-[var(--bp-accent)] text-[var(--bp-accent)] bg-[var(--bp-accent)]/10";
   const btnInactive = "border-[var(--bp-border)] text-[var(--bp-muted)] hover:border-[var(--bp-accent)]/50";
 
   return (
@@ -114,18 +107,21 @@ export default function Visuals({ activities, stats, hasFetched, loading }: Prop
         </div>
         {allDayCodes.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <span className={labelClass}>Day Code</span>
-            <div className="flex flex-wrap gap-1.5">
+            <label className={labelClass}>Day Code</label>
+            <select
+              multiple
+              value={selectedDayCodes}
+              onChange={(e) => setSelectedDayCodes(Array.from(e.target.selectedOptions, (o) => o.value))}
+              className={`${inputClass} min-w-[140px]`}
+              size={Math.min(allDayCodes.length, 5)}
+            >
               {allDayCodes.map((code) => (
-                <button
-                  key={code}
-                  onClick={() => toggleDayCode(code)}
-                  className={`${btnBase} ${selectedDayCodes.includes(code) ? btnActive : btnInactive}`}
-                >
-                  {code}
-                </button>
+                <option key={code} value={code}>{code}</option>
               ))}
-            </div>
+            </select>
+            {selectedDayCodes.length > 0 && (
+              <span className="text-[10px] text-[var(--bp-muted)]">Hold Ctrl/Cmd to select multiple</span>
+            )}
           </div>
         )}
         <div className="flex items-center gap-3">
