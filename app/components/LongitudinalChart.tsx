@@ -139,12 +139,6 @@ export default function LongitudinalChart({ activities, stats }: Props) {
     [stats]
   );
 
-  // Stable colour assigned to each athlete by their index in allAthletes
-  const athleteColorMap = useMemo(() => {
-    const map = new Map<string, string>();
-    allAthletes.forEach((name, i) => map.set(name, LINE_COLORS[i % LINE_COLORS.length]));
-    return map;
-  }, [allAthletes]);
 
   // Group athletes by their most common position across loaded stats
   const athletesByPosition = useMemo(() => {
@@ -294,7 +288,10 @@ export default function LongitudinalChart({ activities, stats }: Props) {
     }
   }, [stats, activities, metric, timeMode, effectiveAggregation, selectedAthletes, activityById]);
 
-  // Determine line keys from all rows (not just the first — some players may not appear on the earliest date)
+  // IMPORTANT: lineKeys must be derived from ALL rows, not just chartData[0].
+  // Players who weren't active on the earliest date won't appear in the first row,
+  // so reading keys from chartData[0] only would silently drop their <Line> entirely.
+  // This caused a bug where selecting certain player combinations rendered only one line.
   const lineKeys = useMemo(() => {
     const keys = new Set<string>();
     chartData.forEach((row) => Object.keys(row).forEach((k) => { if (k !== "date") keys.add(k); }));
@@ -395,16 +392,14 @@ export default function LongitudinalChart({ activities, stats }: Props) {
                 {expanded && (
                   <div className="flex flex-wrap gap-1.5">
                     {names.map((name) => {
-                      const color = athleteColorMap.get(name)!;
                       const active = selectedAthletes.includes(name);
                       return (
                         <button
                           key={name}
                           onClick={() => toggleAthlete(name)}
                           className={`px-2.5 py-1 text-xs rounded border transition-colors ${
-                            active ? "border-transparent text-[var(--bp-bg)]" : "border-[var(--bp-border)] text-[var(--bp-muted)]"
+                            active ? "border-[var(--bp-accent)] bg-[var(--bp-accent)]/20 text-[var(--bp-accent)]" : "border-[var(--bp-border)] text-[var(--bp-muted)]"
                           }`}
-                          style={active ? { backgroundColor: color } : {}}
                         >
                           {name}
                         </button>
@@ -460,12 +455,12 @@ export default function LongitudinalChart({ activities, stats }: Props) {
             itemStyle={{ color: "var(--bp-text)" }}
           />
           <Legend wrapperStyle={{ fontSize: 12, color: "var(--bp-muted)" }} />
-          {lineKeys.map((key) => (
+          {lineKeys.map((key, i) => (
             <Line
               key={key}
               type="monotone"
               dataKey={key}
-              stroke={athleteColorMap.get(key) ?? LINE_COLORS[0]}
+              stroke={LINE_COLORS[i % LINE_COLORS.length]}
               strokeWidth={2}
               dot={{ r: 3 }}
               activeDot={{ r: 5 }}
