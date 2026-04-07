@@ -164,16 +164,13 @@ export default function LongitudinalChart({ activities, stats }: Props) {
   const [metric, setMetric] = useState<Metric>("total_distance");
   const [timeMode, setTimeMode] = useState<TimeMode>("daily");
   const [aggregation, setAggregation] = useState<Aggregation>("sum");
-  const [selectedAthletes, setSelectedAthletes] = useState<string[]>(allAthletes.slice(0, 5));
+  const [selectedAthletes, setSelectedAthletes] = useState<string[]>([]);
   const [activeRefLines, setActiveRefLines] = useState<RefLineKey[]>([]);
   const [expandedPositions, setExpandedPositions] = useState<Set<string>>(new Set());
 
-  // Keep selection in sync when stats change
+  // Keep selection in sync when stats change (drop any athletes no longer in the data)
   useMemo(() => {
-    setSelectedAthletes((prev) => {
-      const valid = prev.filter((a) => allAthletes.includes(a));
-      return valid.length > 0 ? valid : allAthletes.slice(0, 5);
-    });
+    setSelectedAthletes((prev) => prev.filter((a) => allAthletes.includes(a)));
   }, [allAthletes]);
 
   // Rolling 7-day only makes sense in daily mode
