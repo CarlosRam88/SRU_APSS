@@ -294,10 +294,11 @@ export default function LongitudinalChart({ activities, stats }: Props) {
     }
   }, [stats, activities, metric, timeMode, effectiveAggregation, selectedAthletes, activityById]);
 
-  // Determine line keys from chart data
+  // Determine line keys from all rows (not just the first — some players may not appear on the earliest date)
   const lineKeys = useMemo(() => {
-    if (chartData.length === 0) return [];
-    return Object.keys(chartData[0]).filter((k) => k !== "date");
+    const keys = new Set<string>();
+    chartData.forEach((row) => Object.keys(row).forEach((k) => { if (k !== "date") keys.add(k); }));
+    return Array.from(keys);
   }, [chartData]);
 
   // Compute reference line values from all numeric values in the current chart
