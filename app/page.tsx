@@ -61,10 +61,12 @@ export default function Home() {
           if (a.position) positionMap.set(`${a.activity_id}|${a.athlete_name}`, a.position);
         });
       }
-      const enriched = statsData.map((s: ActivityStat) => ({
-        ...s,
-        position: positionMap.get(`${s.activity_id}|${s.athlete_name}`) ?? null,
-      }));
+      const enriched = statsData
+        .map((s: ActivityStat) => ({
+          ...s,
+          position: positionMap.get(`${s.activity_id}|${s.athlete_name}`) ?? null,
+        }))
+        .filter((s: ActivityStat) => s.total_distance > 250); // exclude test/equipment sessions
       setStats(enriched);
     });
   }, [activities]);
