@@ -34,7 +34,6 @@ const ALL_METRICS: { key: MetricKey; label: string }[] = [
 
 const RADAR_COLORS = ["#38bdf8", "#f472b6", "#34d399", "#fb923c", "#a78bfa"];
 
-// Metrics where sum makes sense; others use average
 const RATIO_METRICS: MetricKey[] = ["high_speed_percentage", "percentage_max_velocity"];
 
 function aggregatePlayer(playerStats: ActivityStat[], metrics: MetricKey[]): Record<string, number> {
@@ -62,11 +61,9 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
   );
 
   const [compareMode, setCompareMode] = useState<CompareMode>("group");
-  // Single player mode
   const [selectedAthlete, setSelectedAthlete] = useState<string>(allAthletes[0] ?? "");
-  // Multi-player mode — up to 4
-  const [selectedAthletes, setSelectedAthletes] = useState<string[]>(allAthletes.slice(0, 2));
-  // Axis metric picker — default to first 3
+  const [playerA, setPlayerA] = useState<string>(allAthletes[0] ?? "");
+  const [playerB, setPlayerB] = useState<string>(allAthletes[1] ?? "");
   const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(
     ALL_METRICS.slice(0, 3).map((m) => m.key)
   );
@@ -75,10 +72,8 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
 
   useMemo(() => {
     if (!allAthletes.includes(selectedAthlete)) setSelectedAthlete(allAthletes[0] ?? "");
-    setSelectedAthletes((prev) => {
-      const valid = prev.filter((a) => allAthletes.includes(a));
-      return valid.length > 0 ? valid : allAthletes.slice(0, 2);
-    });
+    if (!allAthletes.includes(playerA)) setPlayerA(allAthletes[0] ?? "");
+    if (!allAthletes.includes(playerB)) setPlayerB(allAthletes[1] ?? "");
   }, [allAthletes]);
 
   const sortedActivityIds = useMemo(
@@ -91,8 +86,7 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
     const metricKeys = activeMetrics.map((m) => m.key);
 
     if (compareMode === "multi") {
-      // One shape per selected athlete, normalized across all selected athletes
-      const aggregated = selectedAthletes.map((athlete) => ({
+      const aggregated = [playerA, playerB].map((athlete) => ({
         athlete,
         values: aggregatePlayer(stats.filter((s) => s.athlete_name === athlete), metricKeys),
       }));
@@ -153,29 +147,22 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
         [`${baselineLabel}_raw`]: parseFloat(bVal.toFixed(1)),
       };
     });
-  }, [stats, selectedAthlete, selectedAthletes, compareMode, allAthletes, sortedActivityIds, activeMetrics]);
+  }, [stats, selectedAthlete, playerA, playerB, compareMode, allAthletes, sortedActivityIds, activeMetrics]);
 
   function toggleMetric(key: MetricKey) {
     setSelectedMetrics((prev) => {
       if (prev.includes(key)) {
-        return prev.length > 3 ? prev.filter((k) => k !== key) : prev; // min 3 axes
+        return prev.length > 3 ? prev.filter((k) => k !== key) : prev;
       }
-      return prev.length < 6 ? [...prev, key] : prev; // max 6 axes
+      return prev.length < 6 ? [...prev, key] : prev;
     });
   }
 
-  function toggleAthlete(name: string) {
-    setSelectedAthletes((prev) =>
-      prev.includes(name)
-        ? prev.length > 2 ? prev.filter((a) => a !== name) : prev // min 2
-        : prev.length < 4 ? [...prev, name] : prev // max 4
-    );
-  }
-
   const radarKeys = compareMode === "multi"
-    ? selectedAthletes
+    ? [playerA, playerB]
     : [selectedAthlete, compareMode === "group" ? "Group Average" : "Self (Last 5)"];
 
+  const selectClass = "bg-[var(--bp-bg)] border border-[var(--bp-border)] text-[var(--bp-text)] text-sm rounded px-3 py-2 focus:outline-none focus:border-[var(--bp-accent)]";
   const btnBase = "px-3 py-1.5 text-xs rounded border transition-colors";
   const btnActive = "border-[var(--bp-accent)] text-[var(--bp-accent)] bg-[var(--bp-accent)]/10";
   const btnInactive = "border-[var(--bp-border)] text-[var(--bp-muted)] hover:border-[var(--bp-accent)]/50";
@@ -213,7 +200,7 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
           <div className="flex gap-1">
             <button onClick={() => setCompareMode("group")} className={`${btnBase} ${compareMode === "group" ? btnActive : btnInactive}`}>vs Group Avg</button>
             <button onClick={() => setCompareMode("self")} className={`${btnBase} ${compareMode === "self" ? btnActive : btnInactive}`}>vs Self (Last 5)</button>
-            <button onClick={() => setCompareMode("multi")} className={`${btnBase} ${compareMode === "multi" ? btnActive : btnInactive}`}>Multi-player</button>
+            <button onClick={() => setCompareMode("multi")} className={`${btnBase} ${compareMode === "multi" ? btnActive : btnInactive}`}>Head-to-Head</button>
           </div>
         </div>
 
@@ -221,34 +208,24 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
         {compareMode !== "multi" ? (
           <div>
             <p className="text-xs text-[var(--bp-muted)] uppercase tracking-wider mb-1.5">Player</p>
-            <select
-              value={selectedAthlete}
-              onChange={(e) => setSelectedAthlete(e.target.value)}
-              className="bg-[var(--bp-bg)] border border-[var(--bp-border)] text-[var(--bp-text)] text-sm rounded px-3 py-2 focus:outline-none focus:border-[var(--bp-accent)]"
-            >
+            <select value={selectedAthlete} onChange={(e) => setSelectedAthlete(e.target.value)} className={selectClass}>
               {allAthletes.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
         ) : (
-          <div>
-            <p className="text-xs text-[var(--bp-muted)] uppercase tracking-wider mb-1.5">Players (2–4)</p>
-            <div className="flex flex-wrap gap-2">
-              {allAthletes.map((name, i) => {
-                const active = selectedAthletes.includes(name);
-                const canRemove = active && selectedAthletes.length > 2;
-                const canAdd = !active && selectedAthletes.length < 4;
-                const disabled = active ? !canRemove : !canAdd;
-                return (
-                  <button
-                    key={name}
-                    onClick={() => !disabled && toggleAthlete(name)}
-                    className={`px-2.5 py-1 text-xs rounded border transition-colors ${disabled ? "opacity-40 cursor-not-allowed border-[var(--bp-border)] text-[var(--bp-muted)]" : active ? "border-transparent text-[var(--bp-bg)]" : "border-[var(--bp-border)] text-[var(--bp-muted)]"}`}
-                    style={active && !disabled ? { backgroundColor: RADAR_COLORS[i % RADAR_COLORS.length] } : {}}
-                  >
-                    {name}
-                  </button>
-                );
-              })}
+          <div className="flex items-end gap-3">
+            <div>
+              <p className="text-xs text-[var(--bp-muted)] uppercase tracking-wider mb-1.5" style={{ color: RADAR_COLORS[0] }}>Player A</p>
+              <select value={playerA} onChange={(e) => setPlayerA(e.target.value)} className={selectClass}>
+                {allAthletes.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </div>
+            <span className="text-[var(--bp-muted)] text-sm pb-2">vs</span>
+            <div>
+              <p className="text-xs text-[var(--bp-muted)] uppercase tracking-wider mb-1.5" style={{ color: RADAR_COLORS[1] }}>Player B</p>
+              <select value={playerB} onChange={(e) => setPlayerB(e.target.value)} className={selectClass}>
+                {allAthletes.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
             </div>
           </div>
         )}
