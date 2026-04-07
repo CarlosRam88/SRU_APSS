@@ -25,6 +25,7 @@ function toDateString(ts: number): string {
 export default function Visuals({ activities, stats, hasFetched, loading }: Props) {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [selectedDayCodes, setSelectedDayCodes] = useState<string[]>([]);
 
   const dataRange = useMemo(() => {
     if (activities.length === 0) return null;
@@ -35,19 +36,33 @@ export default function Visuals({ activities, stats, hasFetched, loading }: Prop
     };
   }, [activities]);
 
+  const allDayCodes = useMemo(() => {
+    const codes = activities.map((a) => a.day_code).filter((c): c is string => !!c);
+    return Array.from(new Set(codes)).sort();
+  }, [activities]);
+
   const filteredActivities = useMemo(() => {
     return activities.filter((a) => {
       const d = toDateString(a.start_time);
       if (fromDate && d < fromDate) return false;
       if (toDate && d > toDate) return false;
+      if (selectedDayCodes.length > 0 && (!a.day_code || !selectedDayCodes.includes(a.day_code))) return false;
       return true;
     });
-  }, [activities, fromDate, toDate]);
+  }, [activities, fromDate, toDate, selectedDayCodes]);
 
   const filteredStats = useMemo(() => {
     const ids = new Set(filteredActivities.map((a) => a.id));
     return stats.filter((s) => ids.has(s.activity_id));
   }, [stats, filteredActivities]);
+
+  function toggleDayCode(code: string) {
+    setSelectedDayCodes((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+    );
+  }
+
+  const hasFilters = fromDate || toDate || selectedDayCodes.length > 0;
 
   if (!hasFetched || loading) {
     return (
@@ -67,10 +82,13 @@ export default function Visuals({ activities, stats, hasFetched, loading }: Prop
 
   const inputClass = "bg-[var(--bp-bg)] border border-[var(--bp-border)] text-[var(--bp-text)] text-sm rounded px-3 py-2 focus:outline-none focus:border-[var(--bp-accent)] cursor-pointer";
   const labelClass = "text-xs uppercase tracking-wider text-[var(--bp-muted)]";
+  const btnBase = "px-2.5 py-1 text-xs rounded border transition-colors";
+  const btnActive = "border-[var(--bp-accent)] text-[var(--bp-accent)] bg-[var(--bp-accent)]/10";
+  const btnInactive = "border-[var(--bp-border)] text-[var(--bp-muted)] hover:border-[var(--bp-accent)]/50";
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Date filter */}
+      {/* Filters */}
       <div className="bg-[var(--bp-surface)] border border-[var(--bp-border)] rounded-lg p-4 flex flex-wrap gap-5 items-end">
         <div className="flex flex-col gap-1.5">
           <label className={labelClass}>From</label>
@@ -94,18 +112,33 @@ export default function Visuals({ activities, stats, hasFetched, loading }: Prop
             className={inputClass}
           />
         </div>
+        {allDayCodes.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <span className={labelClass}>Day Code</span>
+            <div className="flex flex-wrap gap-1.5">
+              {allDayCodes.map((code) => (
+                <button
+                  key={code}
+                  onClick={() => toggleDayCode(code)}
+                  className={`${btnBase} ${selectedDayCodes.includes(code) ? btnActive : btnInactive}`}
+                >
+                  {code}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-3">
-          {(fromDate || toDate) && (
+          {hasFilters && (
             <button
-              onClick={() => { setFromDate(""); setToDate(""); }}
-              className="px-3 py-2 text-xs rounded border border-[var(--bp-border)] text-[var(--bp-muted)] hover:border-[var(--bp-accent)]/50 transition-colors"
+              onClick={() => { setFromDate(""); setToDate(""); setSelectedDayCodes([]); }}
+              className={`${btnBase} ${btnInactive}`}
             >
-              Clear
+              Clear all
             </button>
           )}
           <p className="text-xs text-[var(--bp-muted)]">
             {filteredActivities.length} of {activities.length} activities
-            {dataRange && !fromDate && !toDate && ` · ${dataRange.min} → ${dataRange.max}`}
           </p>
         </div>
       </div>

@@ -20,6 +20,7 @@ type Props = {
 };
 
 type CompareMode = "group" | "self" | "multi";
+type AggMode = "sum" | "average";
 
 type MetricKey = keyof Omit<ActivityStat, "activity_id" | "athlete_name" | "position">;
 
@@ -34,16 +35,24 @@ const ALL_METRICS: { key: MetricKey; label: string }[] = [
 
 const RADAR_COLORS = ["#38bdf8", "#f472b6", "#34d399", "#fb923c", "#a78bfa"];
 
-const RATIO_METRICS: MetricKey[] = ["high_speed_percentage", "percentage_max_velocity"];
+// percentage_max_velocity uses MAX in sum mode (peak velocity hit across the period)
+const MAX_METRICS: MetricKey[] = ["percentage_max_velocity"];
+// Ratio metrics always use average regardless of aggregation mode
+const ALWAYS_AVERAGE_METRICS: MetricKey[] = ["high_speed_percentage"];
 
-function aggregatePlayer(playerStats: ActivityStat[], metrics: MetricKey[]): Record<string, number> {
+function aggregatePlayer(playerStats: ActivityStat[], metrics: MetricKey[], aggMode: AggMode): Record<string, number> {
   if (playerStats.length === 0) return Object.fromEntries(metrics.map((k) => [k, 0]));
   return Object.fromEntries(
     metrics.map((k) => {
       const vals = playerStats.map((s) => s[k] as number);
-      const val = RATIO_METRICS.includes(k)
-        ? vals.reduce((a, b) => a + b, 0) / vals.length
-        : vals.reduce((a, b) => a + b, 0);
+      let val: number;
+      if (aggMode === "average" || ALWAYS_AVERAGE_METRICS.includes(k)) {
+        val = vals.reduce((a, b) => a + b, 0) / vals.length;
+      } else if (MAX_METRICS.includes(k)) {
+        val = Math.max(...vals);
+      } else {
+        val = vals.reduce((a, b) => a + b, 0);
+      }
       return [k, val];
     })
   );
@@ -61,6 +70,7 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
   );
 
   const [compareMode, setCompareMode] = useState<CompareMode>("group");
+  const [aggMode, setAggMode] = useState<AggMode>("sum");
   const [selectedAthlete, setSelectedAthlete] = useState<string>(allAthletes[0] ?? "");
   const [playerA, setPlayerA] = useState<string>(allAthletes[0] ?? "");
   const [playerB, setPlayerB] = useState<string>(allAthletes[1] ?? "");
@@ -88,7 +98,7 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
     if (compareMode === "multi") {
       const aggregated = [playerA, playerB].map((athlete) => ({
         athlete,
-        values: aggregatePlayer(stats.filter((s) => s.athlete_name === athlete), metricKeys),
+        values: aggregatePlayer(stats.filter((s) => s.athlete_name === athlete), metricKeys, aggMode),
       }));
 
       return activeMetrics.map(({ key, label }) => {
@@ -106,7 +116,7 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
 
     // Single player vs baseline
     const subjectStats = stats.filter((s) => s.athlete_name === selectedAthlete);
-    const subject = aggregatePlayer(subjectStats, metricKeys);
+    const subject = aggregatePlayer(subjectStats, metricKeys, aggMode);
 
     let baseline: Record<string, number>;
     let baselineLabel: string;
@@ -117,7 +127,7 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
         baseline = subject;
       } else {
         const perAthlete = others.map((a) =>
-          aggregatePlayer(stats.filter((s) => s.athlete_name === a), metricKeys)
+          aggregatePlayer(stats.filter((s) => s.athlete_name === a), metricKeys, aggMode)
         );
         baseline = Object.fromEntries(
           metricKeys.map((k) => [
@@ -130,7 +140,7 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
     } else {
       const last5Ids = sortedActivityIds.slice(0, 5);
       const last5Stats = stats.filter((s) => s.athlete_name === selectedAthlete && last5Ids.includes(s.activity_id));
-      baseline = aggregatePlayer(last5Stats.length > 0 ? last5Stats : subjectStats, metricKeys);
+      baseline = aggregatePlayer(last5Stats.length > 0 ? last5Stats : subjectStats, metricKeys, aggMode);
       baselineLabel = "Self (Last 5)";
     }
 
@@ -147,7 +157,7 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
         [`${baselineLabel}_raw`]: parseFloat(bVal.toFixed(1)),
       };
     });
-  }, [stats, selectedAthlete, playerA, playerB, compareMode, allAthletes, sortedActivityIds, activeMetrics]);
+  }, [stats, selectedAthlete, playerA, playerB, compareMode, aggMode, allAthletes, sortedActivityIds, activeMetrics]);
 
   function toggleMetric(key: MetricKey) {
     setSelectedMetrics((prev) => {
@@ -191,6 +201,15 @@ export default function PlayerRadarChart({ activities, stats }: Props) {
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* Aggregation */}
+        <div>
+          <p className="text-xs text-[var(--bp-muted)] uppercase tracking-wider mb-1.5">Aggregation</p>
+          <div className="flex gap-1">
+            <button onClick={() => setAggMode("sum")} className={`${btnBase} ${aggMode === "sum" ? btnActive : btnInactive}`}>Accumulated Load</button>
+            <button onClick={() => setAggMode("average")} className={`${btnBase} ${aggMode === "average" ? btnActive : btnInactive}`}>Avg per Session</button>
           </div>
         </div>
 
