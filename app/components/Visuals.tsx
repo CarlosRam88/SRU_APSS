@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import LongitudinalChart, { ActivityStat } from "./LongitudinalChart";
 import PlayerRadarChart from "./PlayerRadarChart";
 
@@ -26,6 +26,18 @@ export default function Visuals({ activities, stats, hasFetched, loading }: Prop
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [selectedDayCodes, setSelectedDayCodes] = useState<string[]>([]);
+  const [dayCodeOpen, setDayCodeOpen] = useState(false);
+  const dayCodeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dayCodeRef.current && !dayCodeRef.current.contains(e.target as Node)) {
+        setDayCodeOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const dataRange = useMemo(() => {
     if (activities.length === 0) return null;
@@ -106,22 +118,38 @@ export default function Visuals({ activities, stats, hasFetched, loading }: Prop
           />
         </div>
         {allDayCodes.length > 0 && (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5" ref={dayCodeRef}>
             <label className={labelClass}>Day Code</label>
-            <select
-              multiple
-              value={selectedDayCodes}
-              onChange={(e) => setSelectedDayCodes(Array.from(e.target.selectedOptions, (o) => o.value))}
-              className={`${inputClass} min-w-[140px]`}
-              size={Math.min(allDayCodes.length, 5)}
-            >
-              {allDayCodes.map((code) => (
-                <option key={code} value={code}>{code}</option>
-              ))}
-            </select>
-            {selectedDayCodes.length > 0 && (
-              <span className="text-[10px] text-[var(--bp-muted)]">Hold Ctrl/Cmd to select multiple</span>
-            )}
+            <div className="relative">
+              <button
+                onClick={() => setDayCodeOpen((prev) => !prev)}
+                className={`${inputClass} flex items-center justify-between gap-4 min-w-[160px]`}
+              >
+                <span>{selectedDayCodes.length === 0 ? "All" : selectedDayCodes.join(", ")}</span>
+                <span className="text-[var(--bp-muted)]">{dayCodeOpen ? "▲" : "▼"}</span>
+              </button>
+              {dayCodeOpen && (
+                <div className="absolute top-full left-0 mt-1 z-10 bg-[var(--bp-surface)] border border-[var(--bp-border)] rounded shadow-lg min-w-full">
+                  {allDayCodes.map((code) => {
+                    const active = selectedDayCodes.includes(code);
+                    return (
+                      <button
+                        key={code}
+                        onClick={() => setSelectedDayCodes((prev) =>
+                          prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+                        )}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-[var(--bp-border)]/20 transition-colors text-left"
+                      >
+                        <span className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center flex-shrink-0 ${active ? "bg-[var(--bp-accent)] border-[var(--bp-accent)]" : "border-[var(--bp-muted)]"}`}>
+                          {active && <span className="text-[var(--bp-bg)] text-[9px] leading-none">✓</span>}
+                        </span>
+                        <span className={active ? "text-[var(--bp-text)]" : "text-[var(--bp-muted)]"}>{code}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
         <div className="flex items-center gap-3">
