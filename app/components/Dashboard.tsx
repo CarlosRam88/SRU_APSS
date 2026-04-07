@@ -99,6 +99,47 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
     return sessions.filter((s) => s.position && selectedPositions.includes(s.position));
   }, [sessions, selectedPositions]);
 
+  const squadSummary = useMemo(() => {
+    const rows = filteredSessions;
+    if (rows.length === 0) return null;
+    const avg = (key: keyof PlayerStat) => {
+      const vals = rows.map((r) => r[key] as number).filter((v) => v != null && !isNaN(v));
+      return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+    };
+    return {
+      players: rows.length,
+      avg_distance: avg("total_distance"),
+      avg_hsd: avg("high_speed_distance"),
+      avg_hsr: avg("high_speed_percentage"),
+      avg_load: avg("total_player_load"),
+      avg_rhie: avg("rhie_bout_count"),
+      avg_max_vel: avg("percentage_max_velocity"),
+    };
+  }, [filteredSessions]);
+
+  function exportCSV() {
+    const activity = filteredActivities.find((a) => a.id === selectedActivityId);
+    const headers = ["Player", "Position", "Total Distance (m)", "HSD (m)", "HSR %", "Player Load", "RHIE Bouts", "% Max Vel."];
+    const rows = filteredSessions.map((s) => [
+      s.athlete_name,
+      s.position ?? "",
+      Math.round(s.total_distance),
+      s.high_speed_distance !== undefined ? Math.round(s.high_speed_distance) : "",
+      s.high_speed_percentage !== undefined ? s.high_speed_percentage.toFixed(1) : "",
+      s.total_player_load !== undefined ? s.total_player_load.toFixed(1) : "",
+      s.rhie_bout_count ?? "",
+      s.percentage_max_velocity !== undefined ? s.percentage_max_velocity.toFixed(1) : "",
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${activity?.name ?? "session"}.csv`.replace(/[^a-z0-9.\-_]/gi, "_");
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function togglePosition(pos: string) {
     setSelectedPositions((prev) =>
       prev.includes(pos) ? prev.filter((p) => p !== pos) : [...prev, pos]
@@ -136,6 +177,27 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
         />
       </div>
 
+      {/* Squad summary bar */}
+      {squadSummary && !sessionsLoading && (
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
+          {[
+            { label: "Players", value: squadSummary.players, decimals: 0, unit: "" },
+            { label: "Avg Distance", value: squadSummary.avg_distance, decimals: 0, unit: "m" },
+            { label: "Avg HSD", value: squadSummary.avg_hsd, decimals: 0, unit: "m" },
+            { label: "Avg HSR %", value: squadSummary.avg_hsr, decimals: 1, unit: "%" },
+            { label: "Avg Load", value: squadSummary.avg_load, decimals: 1, unit: "" },
+            { label: "Avg RHIE", value: squadSummary.avg_rhie, decimals: 1, unit: "" },
+          ].map(({ label, value, decimals, unit }) => (
+            <div key={label} className="bg-[var(--bp-surface)] border border-[var(--bp-border)] rounded-lg px-4 py-3 text-center">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--bp-muted)] mb-1">{label}</p>
+              <p className="text-lg font-semibold text-[var(--bp-accent)]">
+                {decimals === 0 ? Math.round(value) : value.toFixed(decimals)}{unit}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="bg-[var(--bp-surface)] border border-[var(--bp-border)] rounded-lg p-5">
         <div className="flex flex-wrap items-center gap-4 mb-4">
           <h2 className="text-sm uppercase tracking-widest text-[var(--bp-muted)]">Player Stats</h2>
@@ -158,6 +220,14 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
                 </button>
               ))}
             </div>
+          )}
+          {filteredSessions.length > 0 && (
+            <button
+              onClick={exportCSV}
+              className="ml-auto px-3 py-1.5 text-xs rounded border border-[var(--bp-border)] text-[var(--bp-muted)] hover:border-[var(--bp-accent)]/50 hover:text-[var(--bp-accent)] transition-colors"
+            >
+              ↓ Export CSV
+            </button>
           )}
         </div>
         {sessionsLoading ? (
