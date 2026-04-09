@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ActivityDropdown from "./ActivityDropdown";
-import DayCodeDropdown from "./DayCodeDropdown";
 import SessionTable from "./SessionTable";
 
 type Activity = {
@@ -31,32 +30,21 @@ type DashboardProps = {
 };
 
 export default function Dashboard({ activities, hasFetched, loading, onActivityChange }: DashboardProps) {
-  const [selectedDayCode, setSelectedDayCode] = useState("All");
   const [selectedActivityId, setSelectedActivityId] = useState("");
   const [sessions, setSessions] = useState<PlayerStat[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
 
-  const dayCodes = useMemo(() => {
-    const codes = activities.map((a) => a.day_code).filter((c): c is string => !!c);
-    return Array.from(new Set(codes)).sort();
-  }, [activities]);
-
-  const filteredActivities = useMemo(() => {
-    if (selectedDayCode === "All") return activities;
-    return activities.filter((a) => a.day_code === selectedDayCode);
-  }, [activities, selectedDayCode]);
-
   useEffect(() => {
-    if (filteredActivities.length > 0) {
-      setSelectedActivityId(filteredActivities[0].id);
-      onActivityChange?.(filteredActivities[0].id);
+    if (activities.length > 0) {
+      setSelectedActivityId(activities[0].id);
+      onActivityChange?.(activities[0].id);
     } else {
       setSelectedActivityId("");
       onActivityChange?.("");
       setSessions([]);
     }
-  }, [selectedDayCode, filteredActivities]);
+  }, [activities, onActivityChange]);
 
   useEffect(() => {
     if (!selectedActivityId) return;
@@ -118,7 +106,7 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
   }, [filteredSessions]);
 
   function exportCSV() {
-    const activity = filteredActivities.find((a) => a.id === selectedActivityId);
+    const activity = activities.find((a: Activity) => a.id === selectedActivityId);
     const headers = ["Player", "Position", "Total Distance (m)", "HSD (m)", "HSR %", "Player Load", "RHIE Bouts", "% Max Vel."];
     const rows = filteredSessions.map((s) => [
       s.athlete_name,
@@ -165,13 +153,8 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
   return (
     <div>
       <div className="flex flex-wrap gap-4 items-end mb-6">
-        <DayCodeDropdown
-          dayCodes={dayCodes}
-          selectedDayCode={selectedDayCode}
-          onSelectDayCode={setSelectedDayCode}
-        />
         <ActivityDropdown
-          activities={filteredActivities}
+          activities={activities}
           selectedActivityId={selectedActivityId}
           onSelectActivity={(id) => { setSelectedActivityId(id); onActivityChange?.(id); }}
         />
@@ -185,7 +168,7 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
             { label: "Avg Distance", value: squadSummary.avg_distance, decimals: 0, unit: "m" },
             { label: "Avg HSD", value: squadSummary.avg_hsd, decimals: 0, unit: "m" },
             { label: "Avg HSR %", value: squadSummary.avg_hsr, decimals: 1, unit: "%" },
-            { label: "Avg Load", value: squadSummary.avg_load, decimals: 1, unit: "" },
+            { label: "Avg PL", value: squadSummary.avg_load, decimals: 1, unit: "" },
             { label: "Avg RHIE", value: squadSummary.avg_rhie, decimals: 1, unit: "" },
           ].map(({ label, value, decimals, unit }) => (
             <div key={label} className="bg-[var(--bp-surface)] border border-[var(--bp-border)] rounded-lg px-4 py-3 text-center">

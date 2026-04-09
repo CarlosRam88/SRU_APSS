@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityStat } from "./LongitudinalChart";
 
 type Activity = {
@@ -90,6 +90,10 @@ export default function ChatPanel({ activities, stats, selectedActivityId, isOpe
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const context = useMemo(
+    () => buildContext(activities, stats, selectedActivityId),
+    [activities, stats, selectedActivityId]
+  );
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -109,7 +113,7 @@ export default function ChatPanel({ activities, stats, selectedActivityId, isOpe
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         messages: newMessages,
-        context: buildContext(activities, stats, selectedActivityId),
+        context,
       }),
     });
 

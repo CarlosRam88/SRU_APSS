@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, ReferenceLine,
@@ -163,7 +163,7 @@ export default function LongitudinalChart({ activities, stats }: Props) {
   const [expandedPositions, setExpandedPositions] = useState<Set<string>>(new Set());
 
   // Keep selection in sync when stats change (drop any athletes no longer in the data)
-  useMemo(() => {
+  useEffect(() => {
     setSelectedAthletes((prev) => prev.filter((a) => allAthletes.includes(a)));
   }, [allAthletes]);
 
