@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Catapult Dashboard",
-  description: "Performance analytics dashboard",
+  title: "Catapult Dashboard - Prototype",
+  description: "Scottish Rugby Athletic Performance and Sports Science",
 };
 
 export default function RootLayout({
