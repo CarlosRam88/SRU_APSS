@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Dashboard from "./components/Dashboard";
 import Visuals from "./components/Visuals";
 import ChatPanel from "./components/ChatPanel";
@@ -20,6 +20,8 @@ type Team = {
 
 type Tab = "dashboard" | "visuals";
 
+const FOUR_MONTHS_MS = 4 * 30 * 24 * 60 * 60 * 1000;
+
 export default function Home() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -32,6 +34,8 @@ export default function Home() {
   const [chatOpen, setChatOpen] = useState(false);
   const [stats, setStats] = useState<ActivityStat[]>([]);
   const [selectedActivityId, setSelectedActivityId] = useState("");
+  const [showWarning, setShowWarning] = useState(false);
+  const [selectedDayCodes, setSelectedDayCodes] = useState<string[]>([]);
 
   const ALLOWED_TEAMS = ["Scotland U18", "Scotland U20", "Scotland U20 Female", "Scotland7s", "ScottishRU", "SW Performance Squad"];
 
@@ -54,7 +58,6 @@ export default function Home() {
       fetch(`/api/activity-athletes?${qs}`).then((r) => r.json()),
     ]).then(([statsData, athletesData]) => {
       if (!Array.isArray(statsData)) return;
-      // Build lookup: "activityId|athleteName" -> position
       const positionMap = new Map<string, string>();
       if (Array.isArray(athletesData)) {
         athletesData.forEach((a: any) => {
@@ -66,14 +69,31 @@ export default function Home() {
           ...s,
           position: positionMap.get(`${s.activity_id}|${s.athlete_name}`) ?? null,
         }))
-        .filter((s: ActivityStat) => s.total_distance > 250); // exclude test/equipment sessions
+        .filter((s: ActivityStat) => s.total_distance > 250); // exclude test/equipment check sessions
       setStats(enriched);
     });
   }, [activities]);
 
-  async function handleFetch() {
+  function isLargeRange(): boolean {
+    if (!startDate) return true; // no start date — could fetch everything
+    const start = new Date(startDate).getTime();
+    const end = endDate ? new Date(endDate).getTime() : Date.now();
+    return end - start > FOUR_MONTHS_MS;
+  }
+
+  function handleFetchClick() {
+    if (isLargeRange()) {
+      setShowWarning(true);
+    } else {
+      doFetch();
+    }
+  }
+
+  async function doFetch() {
+    setShowWarning(false);
     setLoading(true);
     setActivities([]);
+    setSelectedDayCodes([]);
     setHasFetched(true);
     const params = new URLSearchParams();
     if (startDate) params.set("startDate", startDate);
@@ -91,8 +111,27 @@ export default function Home() {
     );
   }
 
+  const allDayCodes = useMemo(() => {
+    const codes = activities.map((a) => a.day_code).filter((c): c is string => !!c);
+    return Array.from(new Set(codes)).sort();
+  }, [activities]);
+
+  const filteredActivities = useMemo(() => {
+    if (selectedDayCodes.length === 0) return activities;
+    return activities.filter((a) => a.day_code && selectedDayCodes.includes(a.day_code));
+  }, [activities, selectedDayCodes]);
+
+  const filteredStats = useMemo(() => {
+    if (selectedDayCodes.length === 0) return stats;
+    const ids = new Set(filteredActivities.map((a) => a.id));
+    return stats.filter((s) => ids.has(s.activity_id));
+  }, [stats, filteredActivities, selectedDayCodes]);
+
   const inputClass = "bg-[var(--bp-bg)] border border-[var(--bp-border)] text-[var(--bp-text)] text-sm rounded px-3 py-2 focus:outline-none focus:border-[var(--bp-accent)]";
   const labelClass = "block text-xs uppercase tracking-wider text-[var(--bp-muted)] mb-1.5";
+  const btnBase = "px-2.5 py-1 text-xs rounded border transition-colors";
+  const btnActive = "border-[var(--bp-accent)] text-[var(--bp-accent)] bg-[var(--bp-accent)]/10";
+  const btnInactive = "border-[var(--bp-border)] text-[var(--bp-muted)] hover:border-[var(--bp-accent)]/50";
 
   return (
     <main className="min-h-screen px-6 py-8 max-w-7xl mx-auto">
@@ -108,14 +147,14 @@ export default function Home() {
       </div>
 
       {/* Filter bar */}
-      <div className="bg-[var(--bp-surface)] border border-[var(--bp-border)] rounded-lg p-5 flex flex-wrap gap-5 items-end mb-6">
+      <div className="bg-[var(--bp-surface)] border border-[var(--bp-border)] rounded-lg p-5 flex flex-wrap gap-5 items-end mb-3">
         <label className="cursor-pointer">
           <span className={labelClass}>From</span>
-          <input id="date-from" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={`${inputClass} cursor-pointer`} />
+          <input id="date-from" type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setShowWarning(false); }} className={`${inputClass} cursor-pointer`} />
         </label>
         <label className="cursor-pointer">
           <span className={labelClass}>To</span>
-          <input id="date-to" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={`${inputClass} cursor-pointer`} />
+          <input id="date-to" type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setShowWarning(false); }} className={`${inputClass} cursor-pointer`} />
         </label>
         {teams.length > 0 && (
           <div>
@@ -137,7 +176,7 @@ export default function Home() {
         )}
         <div>
           <button
-            onClick={handleFetch}
+            onClick={handleFetchClick}
             disabled={loading || selectedTeamIds.length === 0}
             className="px-5 py-2 rounded text-sm font-medium tracking-wide transition-colors bg-[var(--bp-accent)] text-[var(--bp-bg)] hover:bg-[var(--bp-accent-dim)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -148,6 +187,56 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {/* Large range warning */}
+      {showWarning && (
+        <div className="bg-[var(--bp-surface)] border border-amber-500/40 rounded-lg px-5 py-4 mb-3 flex flex-wrap items-center gap-4">
+          <p className="text-sm text-amber-400 flex-1">
+            ⚠ Fetching a large number of activities may impact dashboard performance. Consider narrowing your date range or filtering by day code after fetching. Continue?
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={doFetch}
+              className="px-4 py-1.5 text-xs rounded border border-amber-500/60 text-amber-400 hover:bg-amber-500/10 transition-colors"
+            >
+              Yes, continue
+            </button>
+            <button
+              onClick={() => setShowWarning(false)}
+              className={`${btnBase} ${btnInactive}`}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Day code filter — appears after fetch */}
+      {allDayCodes.length > 0 && (
+        <div className="bg-[var(--bp-surface)] border border-[var(--bp-border)] rounded-lg px-5 py-3 mb-3 flex flex-wrap items-center gap-3">
+          <span className="text-xs uppercase tracking-wider text-[var(--bp-muted)]">Day Code</span>
+          <button
+            onClick={() => setSelectedDayCodes([])}
+            className={`${btnBase} ${selectedDayCodes.length === 0 ? btnActive : btnInactive}`}
+          >
+            All
+          </button>
+          {allDayCodes.map((code) => (
+            <button
+              key={code}
+              onClick={() => setSelectedDayCodes((prev) =>
+                prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+              )}
+              className={`${btnBase} ${selectedDayCodes.includes(code) ? btnActive : btnInactive}`}
+            >
+              {code}
+            </button>
+          ))}
+          <span className="text-xs text-[var(--bp-muted)] ml-auto">
+            {filteredActivities.length} of {activities.length} activities
+          </span>
+        </div>
+      )}
 
       {/* Tab navigation */}
       <div className="flex gap-1 mb-6 border-b border-[var(--bp-border)]">
@@ -168,10 +257,10 @@ export default function Home() {
 
       {/* Tab content */}
       {activeTab === "dashboard" && (
-        <Dashboard activities={activities} hasFetched={hasFetched} loading={loading} onActivityChange={setSelectedActivityId} />
+        <Dashboard activities={filteredActivities} hasFetched={hasFetched} loading={loading} onActivityChange={setSelectedActivityId} />
       )}
       {activeTab === "visuals" && (
-        <Visuals activities={activities} stats={stats} hasFetched={hasFetched} loading={loading} />
+        <Visuals activities={filteredActivities} stats={filteredStats} hasFetched={hasFetched} loading={loading} />
       )}
 
       {/* Floating chat button */}
@@ -186,8 +275,8 @@ export default function Home() {
 
       {/* Chat panel */}
       <ChatPanel
-        activities={activities}
-        stats={stats}
+        activities={filteredActivities}
+        stats={filteredStats}
         selectedActivityId={selectedActivityId}
         isOpen={chatOpen}
         onClose={() => setChatOpen(false)}
