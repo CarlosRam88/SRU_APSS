@@ -35,8 +35,8 @@ export default function LoginPage() {
         <div className="flex flex-col items-center mb-8 gap-4">
           <img src="/Scotlandlogo.png" alt="Scottish Rugby" className="h-20 w-auto" />
           <div className="text-center">
-            <p className="text-xs uppercase tracking-widest text-[var(--bp-muted)] mb-1">Scottish Rugby Athletic Performance</p>
-            <h1 className="text-2xl font-semibold text-[var(--bp-accent)] tracking-tight">Catapult Dashboard</h1>
+            <p className="text-xs uppercase tracking-widest text-[var(--bp-muted)] mb-1">Scottish Rugby Athletic Performance and Sports Science</p>
+            <h1 className="text-2xl font-semibold text-[var(--bp-accent)] tracking-tight">Catapult Dashboard - Prototype</h1>
           </div>
         </div>
 
