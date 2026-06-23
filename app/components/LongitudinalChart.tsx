@@ -16,7 +16,9 @@ export type ActivityStat = {
   high_speed_percentage: number;
   total_player_load: number;
   rhie_bout_count: number;
+  contactinvolvement_total_count: number;
   percentage_max_velocity: number;
+  max_vel: number;
 };
 
 type Activity = {
@@ -95,11 +97,17 @@ const METRIC_LABELS: Record<Metric, string> = {
   high_speed_percentage: "HSR %",
   total_player_load: "Player Load",
   rhie_bout_count: "RHIE Bouts",
+  contactinvolvement_total_count: "Contact Inv.",
   percentage_max_velocity: "% Max Velocity",
+  max_vel: "Max Vel (m/s)",
 };
 
 // Metrics where averaging makes more sense than summing
 const RATIO_METRICS: Metric[] = ["high_speed_percentage", "percentage_max_velocity"];
+
+// Metrics aggregated by peak (max) rather than sum/average — e.g. top speed, where
+// the meaningful value over a day/week is the highest reached, not the total.
+const MAX_METRICS: Metric[] = ["max_vel"];
 
 const AGGREGATION_LABELS: Record<Aggregation, string> = {
   sum: "Sum",
@@ -124,6 +132,11 @@ function getISOWeek(date: Date): string {
 
 function aggregateValues(vals: number[], metric: Metric, method: "sum" | "average"): number {
   if (vals.length === 0) return 0;
+  // Peak metrics (e.g. max velocity) always take the maximum within the bucket,
+  // regardless of the selected sum/average mode.
+  if (MAX_METRICS.includes(metric)) {
+    return Math.max(...vals);
+  }
   if (method === "average" || RATIO_METRICS.includes(metric)) {
     return vals.reduce((a, b) => a + b, 0) / vals.length;
   }

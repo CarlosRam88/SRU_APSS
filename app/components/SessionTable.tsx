@@ -1,6 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  MetricKey, orderMetrics, formatTable, buildMedalMap,
+} from "./metrics";
 
 type Player = {
   athlete_name: string;
@@ -10,57 +13,43 @@ type Player = {
   high_speed_percentage?: number;
   total_player_load?: number;
   rhie_bout_count?: number;
+  contactinvolvement_total_count?: number;
   percentage_max_velocity?: number;
+  max_vel?: number;
   position?: string | null;
 };
 
 type SessionTableProps = {
   sessions: Player[];
+  visibleMetrics: MetricKey[];
 };
 
-type SortColumn =
-  | "athlete_name"
-  | "total_distance"
-  | "running_distance"
-  | "high_speed_distance"
-  | "high_speed_percentage"
-  | "total_player_load"
-  | "rhie_bout_count"
-  | "percentage_max_velocity";
-
-const NUMERIC_COLS: SortColumn[] = [
-  "total_distance",
-  "running_distance",
-  "high_speed_distance",
-  "high_speed_percentage",
-  "total_player_load",
-  "rhie_bout_count",
-  "percentage_max_velocity",
-];
+type SortColumn = "athlete_name" | MetricKey;
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
-export default function SessionTable({ sessions }: SessionTableProps) {
+export default function SessionTable({ sessions, visibleMetrics }: SessionTableProps) {
+  const columns = useMemo(() => orderMetrics(visibleMetrics), [visibleMetrics]);
+
   const [sortColumn, setSortColumn] = useState<SortColumn>("total_distance");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-  // For each numeric column, map value -> medal index (0=gold, 1=silver, 2=bronze)
-  const medalMap = useMemo(() => {
-    const result: Record<string, Map<number, number>> = {};
-    NUMERIC_COLS.forEach((col) => {
-      const vals = sessions
-        .map((p) => p[col] as number | undefined)
-        .filter((v): v is number => v !== undefined && v > 0)
-        .sort((a, b) => b - a);
-      const top3 = [...new Set(vals)].slice(0, 3);
-      const map = new Map<number, number>();
-      top3.forEach((v, i) => map.set(v, i));
-      result[col] = map;
-    });
-    return result;
-  }, [sessions]);
+  // If the active sort column is a metric that's no longer visible, fall back to
+  // the first visible metric (or the player name).
+  useEffect(() => {
+    if (sortColumn !== "athlete_name" && !visibleMetrics.includes(sortColumn)) {
+      setSortColumn(visibleMetrics[0] ?? "athlete_name");
+      setSortDirection("desc");
+    }
+  }, [visibleMetrics, sortColumn]);
 
-  function getMedal(col: SortColumn, value: number | undefined): string {
+  // Medal ranking per visible numeric column (0=gold, 1=silver, 2=bronze).
+  const medalMap = useMemo(
+    () => buildMedalMap(sessions, visibleMetrics),
+    [sessions, visibleMetrics]
+  );
+
+  function getMedal(col: MetricKey, value: number | undefined): string {
     if (value === undefined || value === 0) return "";
     const rank = medalMap[col]?.get(value);
     return rank !== undefined ? MEDALS[rank] : "";
@@ -71,7 +60,7 @@ export default function SessionTable({ sessions }: SessionTableProps) {
       if (sortColumn === "athlete_name") {
         return (a.athlete_name ?? "").localeCompare(b.athlete_name ?? "");
       }
-      return (a[sortColumn] ?? 0) - (b[sortColumn] ?? 0);
+      return ((a[sortColumn] as number) ?? 0) - ((b[sortColumn] as number) ?? 0);
     });
     return sortDirection === "asc" ? sorted : sorted.reverse();
   }, [sessions, sortColumn, sortDirection]);
@@ -105,27 +94,11 @@ export default function SessionTable({ sessions }: SessionTableProps) {
             <th className={thClass} onClick={() => handleSort("athlete_name")}>
               Player{arrow("athlete_name")}
             </th>
-            <th className={thClass} onClick={() => handleSort("total_distance")}>
-              Total Distance (m){arrow("total_distance")}
-            </th>
-            <th className={thClass} onClick={() => handleSort("running_distance")}>
-              Running Distance (m){arrow("running_distance")}
-            </th>
-            <th className={thClass} onClick={() => handleSort("high_speed_distance")}>
-              HSD (m){arrow("high_speed_distance")}
-            </th>
-            <th className={thClass} onClick={() => handleSort("high_speed_percentage")}>
-              HSR %{arrow("high_speed_percentage")}
-            </th>
-            <th className={thClass} onClick={() => handleSort("total_player_load")}>
-              Player Load{arrow("total_player_load")}
-            </th>
-            <th className={thClass} onClick={() => handleSort("rhie_bout_count")}>
-              RHIE Bouts{arrow("rhie_bout_count")}
-            </th>
-            <th className={thClass} onClick={() => handleSort("percentage_max_velocity")}>
-              % Max Vel.{arrow("percentage_max_velocity")}
-            </th>
+            {columns.map((col) => (
+              <th key={col.key} className={thClass} onClick={() => handleSort(col.key)}>
+                {col.tableLabel}{arrow(col.key)}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -139,40 +112,22 @@ export default function SessionTable({ sessions }: SessionTableProps) {
                   </span>
                 )}
               </td>
-              <td className={`${tdClass} text-[var(--bp-accent)]`}>
-                {Math.round(player.total_distance)}
-                <span className="ml-1">{getMedal("total_distance", player.total_distance)}</span>
-              </td>
-              <td className={`${tdClass} text-[var(--bp-text)]`}>
-                {player.running_distance !== undefined ? (
-                  <>{Math.round(player.running_distance)}<span className="ml-1">{getMedal("running_distance", player.running_distance)}</span></>
-                ) : "—"}
-              </td>
-              <td className={`${tdClass} text-[var(--bp-text)]`}>
-                {player.high_speed_distance !== undefined ? (
-                  <>{Math.round(player.high_speed_distance)}<span className="ml-1">{getMedal("high_speed_distance", player.high_speed_distance)}</span></>
-                ) : "—"}
-              </td>
-              <td className={`${tdClass} text-[var(--bp-text)]`}>
-                {player.high_speed_percentage !== undefined ? (
-                  <>{player.high_speed_percentage.toFixed(1)}%<span className="ml-1">{getMedal("high_speed_percentage", player.high_speed_percentage)}</span></>
-                ) : "—"}
-              </td>
-              <td className={`${tdClass} text-[var(--bp-text)]`}>
-                {player.total_player_load !== undefined ? (
-                  <>{Math.round(player.total_player_load)}<span className="ml-1">{getMedal("total_player_load", player.total_player_load)}</span></>
-                ) : "—"}
-              </td>
-              <td className={`${tdClass} text-[var(--bp-text)]`}>
-                {player.rhie_bout_count !== undefined ? (
-                  <>{player.rhie_bout_count}<span className="ml-1">{getMedal("rhie_bout_count", player.rhie_bout_count)}</span></>
-                ) : "—"}
-              </td>
-              <td className={`${tdClass} text-[var(--bp-text)]`}>
-                {player.percentage_max_velocity !== undefined ? (
-                  <>{player.percentage_max_velocity.toFixed(1)}%<span className="ml-1">{getMedal("percentage_max_velocity", player.percentage_max_velocity)}</span></>
-                ) : "—"}
-              </td>
+              {columns.map((col) => {
+                const value = player[col.key] as number | undefined;
+                return (
+                  <td
+                    key={col.key}
+                    className={`${tdClass} ${col.accent ? "text-[var(--bp-accent)]" : "text-[var(--bp-text)]"}`}
+                  >
+                    {value !== undefined ? (
+                      <>
+                        {formatTable(col, value)}
+                        <span className="ml-1">{getMedal(col.key, value)}</span>
+                      </>
+                    ) : "—"}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>

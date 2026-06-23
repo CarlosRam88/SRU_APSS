@@ -30,7 +30,9 @@ export async function GET(request: Request) {
               "velocity_band8_total_distance",
               "total_player_load",
               "rhie_bout_count",
+              "contactinvolvement_total_count",
               "percentage_max_velocity",
+              "max_vel",
             ],
             group_by: ["athlete"],
             filters: [
@@ -67,7 +69,9 @@ export async function GET(request: Request) {
             row.total_distance > 0 ? (hsd / row.total_distance) * 100 : 0,
           total_player_load: row.total_player_load || 0,
           rhie_bout_count: row.rhie_bout_count || 0,
+          contactinvolvement_total_count: row.contactinvolvement_total_count || 0,
           percentage_max_velocity: row.percentage_max_velocity || 0,
+          max_vel: row.max_vel || 0,
         };
       });
     })

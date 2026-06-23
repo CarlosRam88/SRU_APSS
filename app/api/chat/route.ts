@@ -18,7 +18,9 @@ METRIC DEFINITIONS:
 - hsr / high_speed_percentage: High-speed distance as a percentage of total distance — a measure of relative intensity; always interpreted as an average, never a sum
 - player_load: Catapult's proprietary tri-axial accelerometer metric reflecting overall physical load (arbitrary units); higher = more demanding session
 - rhie_bouts: Repeated High-Intensity Effort bouts — count of repeated sprints/contacts in quick succession; key indicator of rugby-specific fatigue demand
+- contact_involvements / contactinvolvement_total_count: Count of contact events (tackles, rucks, mauls, collisions) detected in the session; a measure of collision/contact load. Summed across sessions, like distance
 - pct_max_velocity / percentage_max_velocity: Percentage of the player's personal maximum recorded velocity reached in the session; useful for neuromuscular load assessment; interpreted as peak value across sessions, not a sum
+- max_vel: Absolute maximum velocity (top speed) reached in the session, in metres per second (m/s). This is the raw peak speed, distinct from pct_max_velocity. Aggregated as a peak (maximum) across sessions, never summed or averaged
 - position: Player's position (e.g. Prop, Hooker, Flanker, Fly-half, etc.)
 - day_code: Training day code relative to match (e.g. MD = Match Day, MD-1 = day before match, MD-3 = three days before match)
 

@@ -22,7 +22,9 @@ export async function GET(request: Request) {
           "total_distance",
           "total_player_load",
           "rhie_bout_count",
+          "contactinvolvement_total_count",
           "percentage_max_velocity",
+          "max_vel",
           "velocity_band2_total_distance",
           "velocity_band3_total_distance",
           "velocity_band4_total_distance",
@@ -70,7 +72,9 @@ export async function GET(request: Request) {
       high_speed_percentage: hsdPercentage,
       total_player_load: row.total_player_load,
       rhie_bout_count: row.rhie_bout_count || 0,
+      contactinvolvement_total_count: row.contactinvolvement_total_count || 0,
       percentage_max_velocity: row.percentage_max_velocity || 0,
+      max_vel: row.max_vel || 0,
     };
   });
 

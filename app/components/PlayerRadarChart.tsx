@@ -31,13 +31,16 @@ const ALL_METRICS: { key: MetricKey; label: string }[] = [
   { key: "high_speed_percentage", label: "HSR %" },
   { key: "total_player_load", label: "Player Load" },
   { key: "rhie_bout_count", label: "RHIE Bouts" },
+  { key: "contactinvolvement_total_count", label: "Contact Inv." },
   { key: "percentage_max_velocity", label: "% Max Vel." },
+  { key: "max_vel", label: "Max Vel" },
 ];
 
 const RADAR_COLORS = ["#38bdf8", "#f472b6", "#34d399", "#fb923c", "#a78bfa"];
 
-// percentage_max_velocity uses MAX in sum mode (peak velocity hit across the period)
-const MAX_METRICS: MetricKey[] = ["percentage_max_velocity"];
+// Peak metrics use MAX in sum mode (highest value reached across the period):
+// percentage_max_velocity (peak % of personal max) and max_vel (top speed in m/s).
+const MAX_METRICS: MetricKey[] = ["percentage_max_velocity", "max_vel"];
 // Ratio metrics always use average regardless of aggregation mode
 const ALWAYS_AVERAGE_METRICS: MetricKey[] = ["high_speed_percentage"];
 
