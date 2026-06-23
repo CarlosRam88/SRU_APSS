@@ -14,6 +14,7 @@ type Activity = {
 type PlayerStat = {
   athlete_name: string;
   total_distance: number;
+  running_distance?: number;
   high_speed_distance?: number;
   high_speed_percentage?: number;
   total_player_load?: number;
@@ -97,6 +98,7 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
     return {
       players: rows.length,
       avg_distance: avg("total_distance"),
+      avg_running: avg("running_distance"),
       avg_hsd: avg("high_speed_distance"),
       avg_hsr: avg("high_speed_percentage"),
       avg_load: avg("total_player_load"),
@@ -107,11 +109,12 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
 
   function exportCSV() {
     const activity = activities.find((a: Activity) => a.id === selectedActivityId);
-    const headers = ["Player", "Position", "Total Distance (m)", "HSD (m)", "HSR %", "Player Load", "RHIE Bouts", "% Max Vel."];
+    const headers = ["Player", "Position", "Total Distance (m)", "Running Distance (m)", "HSD (m)", "HSR %", "Player Load", "RHIE Bouts", "% Max Vel."];
     const rows = filteredSessions.map((s) => [
       s.athlete_name,
       s.position ?? "",
       Math.round(s.total_distance),
+      s.running_distance !== undefined ? Math.round(s.running_distance) : "",
       s.high_speed_distance !== undefined ? Math.round(s.high_speed_distance) : "",
       s.high_speed_percentage !== undefined ? s.high_speed_percentage.toFixed(1) : "",
       s.total_player_load !== undefined ? s.total_player_load.toFixed(1) : "",
@@ -162,10 +165,11 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
 
       {/* Squad summary bar */}
       {squadSummary && !sessionsLoading && (
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-4">
+        <div className="grid grid-cols-3 sm:grid-cols-7 gap-3 mb-4">
           {[
             { label: "Players", value: squadSummary.players, decimals: 0, unit: "" },
             { label: "Avg Distance", value: squadSummary.avg_distance, decimals: 0, unit: "m" },
+            { label: "Avg Run Dist", value: squadSummary.avg_running, decimals: 0, unit: "m" },
             { label: "Avg HSD", value: squadSummary.avg_hsd, decimals: 0, unit: "m" },
             { label: "Avg HSR %", value: squadSummary.avg_hsr, decimals: 1, unit: "%" },
             { label: "Avg PL", value: squadSummary.avg_load, decimals: 1, unit: "" },

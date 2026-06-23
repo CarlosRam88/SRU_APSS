@@ -13,6 +13,7 @@ export async function POST(request: Request) {
 
 METRIC DEFINITIONS:
 - total_distance: Total GPS distance covered in metres
+- running_distance: Distance covered while running — the sum of velocity bands 2–8, in metres. Broader than HSD (which is bands 4–8) as it also includes lower-speed running; always a subset of total_distance. Excludes the lowest bands (walking/standing). Summed across sessions, like total_distance.
 - hsd / high_speed_distance: Distance covered above high-speed threshold (typically >5.5 m/s), in metres
 - hsr / high_speed_percentage: High-speed distance as a percentage of total distance — a measure of relative intensity; always interpreted as an average, never a sum
 - player_load: Catapult's proprietary tri-axial accelerometer metric reflecting overall physical load (arbitrary units); higher = more demanding session

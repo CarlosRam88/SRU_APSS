@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 type Player = {
   athlete_name: string;
   total_distance: number;
+  running_distance?: number;
   high_speed_distance?: number;
   high_speed_percentage?: number;
   total_player_load?: number;
@@ -20,6 +21,7 @@ type SessionTableProps = {
 type SortColumn =
   | "athlete_name"
   | "total_distance"
+  | "running_distance"
   | "high_speed_distance"
   | "high_speed_percentage"
   | "total_player_load"
@@ -28,6 +30,7 @@ type SortColumn =
 
 const NUMERIC_COLS: SortColumn[] = [
   "total_distance",
+  "running_distance",
   "high_speed_distance",
   "high_speed_percentage",
   "total_player_load",
@@ -105,6 +108,9 @@ export default function SessionTable({ sessions }: SessionTableProps) {
             <th className={thClass} onClick={() => handleSort("total_distance")}>
               Total Distance (m){arrow("total_distance")}
             </th>
+            <th className={thClass} onClick={() => handleSort("running_distance")}>
+              Running Distance (m){arrow("running_distance")}
+            </th>
             <th className={thClass} onClick={() => handleSort("high_speed_distance")}>
               HSD (m){arrow("high_speed_distance")}
             </th>
@@ -136,6 +142,11 @@ export default function SessionTable({ sessions }: SessionTableProps) {
               <td className={`${tdClass} text-[var(--bp-accent)]`}>
                 {Math.round(player.total_distance)}
                 <span className="ml-1">{getMedal("total_distance", player.total_distance)}</span>
+              </td>
+              <td className={`${tdClass} text-[var(--bp-text)]`}>
+                {player.running_distance !== undefined ? (
+                  <>{Math.round(player.running_distance)}<span className="ml-1">{getMedal("running_distance", player.running_distance)}</span></>
+                ) : "—"}
               </td>
               <td className={`${tdClass} text-[var(--bp-text)]`}>
                 {player.high_speed_distance !== undefined ? (

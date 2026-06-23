@@ -11,6 +11,7 @@ export type ActivityStat = {
   athlete_name: string;
   position: string | null;
   total_distance: number;
+  running_distance: number;
   high_speed_distance: number;
   high_speed_percentage: number;
   total_player_load: number;
@@ -89,6 +90,7 @@ function computeRefLines(values: number[]): Record<RefLineKey, number> {
 
 const METRIC_LABELS: Record<Metric, string> = {
   total_distance: "Total Distance (m)",
+  running_distance: "Running Distance (m)",
   high_speed_distance: "HSD (m)",
   high_speed_percentage: "HSR %",
   total_player_load: "Player Load",

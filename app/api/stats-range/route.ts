@@ -21,6 +21,8 @@ export async function GET(request: Request) {
             parameters: [
               "athlete_name",
               "total_distance",
+              "velocity_band2_total_distance",
+              "velocity_band3_total_distance",
               "velocity_band4_total_distance",
               "velocity_band5_total_distance",
               "velocity_band6_total_distance",
@@ -49,10 +51,17 @@ export async function GET(request: Request) {
           (row.velocity_band7_total_distance || 0) +
           (row.velocity_band8_total_distance || 0);
 
+        // Running distance: velocity bands 2–8 (broader than HSD, which is bands 4–8)
+        const runningDistance =
+          (row.velocity_band2_total_distance || 0) +
+          (row.velocity_band3_total_distance || 0) +
+          hsd;
+
         return {
           activity_id: activityId,
           athlete_name: row.athlete_name,
           total_distance: row.total_distance || 0,
+          running_distance: runningDistance,
           high_speed_distance: hsd,
           high_speed_percentage:
             row.total_distance > 0 ? (hsd / row.total_distance) * 100 : 0,

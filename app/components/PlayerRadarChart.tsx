@@ -26,6 +26,7 @@ type MetricKey = keyof Omit<ActivityStat, "activity_id" | "athlete_name" | "posi
 
 const ALL_METRICS: { key: MetricKey; label: string }[] = [
   { key: "total_distance", label: "Total Distance" },
+  { key: "running_distance", label: "Run Dist" },
   { key: "high_speed_distance", label: "HSD" },
   { key: "high_speed_percentage", label: "HSR %" },
   { key: "total_player_load", label: "Player Load" },
