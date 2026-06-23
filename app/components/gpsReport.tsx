@@ -11,7 +11,7 @@ import {
   Document, Page, View, Text, Image, StyleSheet, pdf,
 } from "@react-pdf/renderer";
 import {
-  MetricKey, orderMetrics, formatTable, formatCard, buildMedalMap,
+  MetricKey, pickMetrics, formatTable, formatCard, buildMedalMap,
 } from "./metrics";
 
 // Palette — mirrors :root in globals.css
@@ -117,7 +117,7 @@ function GridLayer() {
 
 function GpsReport(props: GpsReportProps) {
   const { title, activityName, activityDate, positionsLabel, generatedAt, players, averages, metrics, rows, logoUrl } = props;
-  const columns = orderMetrics(metrics);
+  const columns = pickMetrics(metrics);
   const medalMap = buildMedalMap(rows, metrics);
 
   const cards = [

@@ -46,9 +46,12 @@ export function metricDef(key: MetricKey): MetricDef {
   return BY_KEY.get(key)!;
 }
 
-// Return the selected metrics in canonical order, ignoring selection order.
-export function orderMetrics(keys: MetricKey[]): MetricDef[] {
-  return METRICS.filter((m) => keys.includes(m.key));
+// Resolve keys to their defs, preserving the given order (the user's column order).
+// Unknown keys are dropped.
+export function pickMetrics(keys: MetricKey[]): MetricDef[] {
+  return keys
+    .map((k) => BY_KEY.get(k))
+    .filter((m): m is MetricDef => m !== undefined);
 }
 
 function fmtNum(v: number, decimals: 0 | 1): string {

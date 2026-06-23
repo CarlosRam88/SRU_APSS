@@ -1,8 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  MetricKey, orderMetrics, formatTable, buildMedalMap,
+  DndContext, closestCenter, MouseSensor, TouchSensor, KeyboardSensor,
+  useSensor, useSensors, DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext, horizontalListSortingStrategy, useSortable,
+  sortableKeyboardCoordinates, arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
+import {
+  MetricKey, MetricDef, pickMetrics, formatTable, buildMedalMap,
 } from "./metrics";
 
 type Player = {
@@ -22,17 +32,71 @@ type Player = {
 type SessionTableProps = {
   sessions: Player[];
   visibleMetrics: MetricKey[];
+  onReorder: (next: MetricKey[]) => void;
 };
 
 type SortColumn = "athlete_name" | MetricKey;
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
-export default function SessionTable({ sessions, visibleMetrics }: SessionTableProps) {
-  const columns = useMemo(() => orderMetrics(visibleMetrics), [visibleMetrics]);
+const thClass = "px-4 py-3 text-left text-xs uppercase tracking-wider text-[var(--bp-muted)] select-none hover:text-[var(--bp-accent)] transition-colors border-b border-[var(--bp-border)]";
+const tdClass = "px-4 py-3 text-sm border-b border-[var(--bp-border)]";
+
+function SortArrow({ active, direction }: { active: boolean; direction: "asc" | "desc" }) {
+  if (!active) return <span className="text-[var(--bp-border)] ml-1">↕</span>;
+  return <span className="text-[var(--bp-accent)] ml-1">{direction === "asc" ? "↑" : "↓"}</span>;
+}
+
+// A draggable, sortable metric column header. Long-press (touch) or click-drag (mouse)
+// to reposition; a plain click sorts. `justDragged` suppresses the click that fires
+// right after a drag so a reorder doesn't also trigger a sort.
+function SortableHeader({
+  col, sortColumn, sortDirection, onSort, justDragged,
+}: {
+  col: MetricDef;
+  sortColumn: SortColumn;
+  sortDirection: "asc" | "desc";
+  onSort: (key: MetricKey) => void;
+  justDragged: React.RefObject<boolean>;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: col.key });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    cursor: "grab",
+    touchAction: "none",
+  };
+  return (
+    <th
+      ref={setNodeRef}
+      style={style}
+      className={thClass}
+      {...attributes}
+      {...listeners}
+      onClick={() => { if (!justDragged.current) onSort(col.key); }}
+    >
+      <span className="inline-flex items-center gap-1.5">
+        <span className="text-[var(--bp-border)] text-[10px] leading-none" aria-hidden>⠿</span>
+        {col.tableLabel}
+        <SortArrow active={sortColumn === col.key} direction={sortDirection} />
+      </span>
+    </th>
+  );
+}
+
+export default function SessionTable({ sessions, visibleMetrics, onReorder }: SessionTableProps) {
+  const columns = useMemo(() => pickMetrics(visibleMetrics), [visibleMetrics]);
 
   const [sortColumn, setSortColumn] = useState<SortColumn>("total_distance");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const justDragged = useRef(false);
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   // If the active sort column is a metric that's no longer visible, fall back to
   // the first visible metric (or the player name).
@@ -74,64 +138,93 @@ export default function SessionTable({ sessions, visibleMetrics }: SessionTableP
     }
   }
 
-  function arrow(column: SortColumn) {
-    if (sortColumn !== column) return <span className="text-[var(--bp-border)] ml-1">↕</span>;
-    return <span className="text-[var(--bp-accent)] ml-1">{sortDirection === "asc" ? "↑" : "↓"}</span>;
+  function handleDragStart() {
+    justDragged.current = true;
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    // Clear on the next tick — after the click that follows pointer-up has been
+    // suppressed — so the next genuine click can sort again.
+    setTimeout(() => { justDragged.current = false; }, 0);
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = visibleMetrics.indexOf(active.id as MetricKey);
+      const newIndex = visibleMetrics.indexOf(over.id as MetricKey);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        onReorder(arrayMove(visibleMetrics, oldIndex, newIndex));
+      }
+    }
   }
 
   if (sessions.length === 0) {
     return <p className="text-[var(--bp-muted)] text-sm">No player data available.</p>;
   }
 
-  const thClass = "px-4 py-3 text-left text-xs uppercase tracking-wider text-[var(--bp-muted)] cursor-pointer select-none hover:text-[var(--bp-accent)] transition-colors border-b border-[var(--bp-border)]";
-  const tdClass = "px-4 py-3 text-sm border-b border-[var(--bp-border)]";
-
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="bg-[var(--bp-bg)]">
-            <th className={thClass} onClick={() => handleSort("athlete_name")}>
-              Player{arrow("athlete_name")}
-            </th>
-            {columns.map((col) => (
-              <th key={col.key} className={thClass} onClick={() => handleSort(col.key)}>
-                {col.tableLabel}{arrow(col.key)}
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      modifiers={[restrictToHorizontalAxis]}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={() => setTimeout(() => { justDragged.current = false; }, 0)}
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-[var(--bp-bg)]">
+              <th
+                className={`${thClass} cursor-pointer`}
+                onClick={() => handleSort("athlete_name")}
+              >
+                Player<SortArrow active={sortColumn === "athlete_name"} direction={sortDirection} />
               </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {sortedSessions.map((player, index) => (
-            <tr key={index} className="hover:bg-[var(--bp-border)]/20 transition-colors">
-              <td className={`${tdClass} text-[var(--bp-text)] font-medium`}>
-                {player.athlete_name}
-                {player.position && (
-                  <span className="ml-2 text-[10px] text-[var(--bp-muted)] uppercase tracking-wider">
-                    {player.position}
-                  </span>
-                )}
-              </td>
-              {columns.map((col) => {
-                const value = player[col.key] as number | undefined;
-                return (
-                  <td
+              <SortableContext items={columns.map((c) => c.key)} strategy={horizontalListSortingStrategy}>
+                {columns.map((col) => (
+                  <SortableHeader
                     key={col.key}
-                    className={`${tdClass} ${col.accent ? "text-[var(--bp-accent)]" : "text-[var(--bp-text)]"}`}
-                  >
-                    {value !== undefined ? (
-                      <>
-                        {formatTable(col, value)}
-                        <span className="ml-1">{getMedal(col.key, value)}</span>
-                      </>
-                    ) : "—"}
-                  </td>
-                );
-              })}
+                    col={col}
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={handleSort}
+                    justDragged={justDragged}
+                  />
+                ))}
+              </SortableContext>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {sortedSessions.map((player, index) => (
+              <tr key={index} className="hover:bg-[var(--bp-border)]/20 transition-colors">
+                <td className={`${tdClass} text-[var(--bp-text)] font-medium`}>
+                  {player.athlete_name}
+                  {player.position && (
+                    <span className="ml-2 text-[10px] text-[var(--bp-muted)] uppercase tracking-wider">
+                      {player.position}
+                    </span>
+                  )}
+                </td>
+                {columns.map((col) => {
+                  const value = player[col.key] as number | undefined;
+                  return (
+                    <td
+                      key={col.key}
+                      className={`${tdClass} ${col.accent ? "text-[var(--bp-accent)]" : "text-[var(--bp-text)]"}`}
+                    >
+                      {value !== undefined ? (
+                        <>
+                          {formatTable(col, value)}
+                          <span className="ml-1">{getMedal(col.key, value)}</span>
+                        </>
+                      ) : "—"}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </DndContext>
   );
 }

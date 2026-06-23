@@ -58,7 +58,10 @@ export default function MetricSelector({ selected, onChange }: Props) {
           <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--bp-border)]">
             <button
               type="button"
-              onClick={() => onChange([...ALL_METRIC_KEYS])}
+              onClick={() => onChange([
+                ...selected,
+                ...ALL_METRIC_KEYS.filter((k) => !selected.includes(k)),
+              ])}
               className="text-xs text-[var(--bp-accent)] hover:underline"
             >
               Select all

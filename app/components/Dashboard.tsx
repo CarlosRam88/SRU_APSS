@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import ActivityDropdown from "./ActivityDropdown";
 import SessionTable from "./SessionTable";
 import MetricSelector from "./MetricSelector";
-import { MetricKey, ALL_METRIC_KEYS, METRICS, orderMetrics, formatCard, formatCsv } from "./metrics";
+import { MetricKey, ALL_METRIC_KEYS, METRICS, pickMetrics, formatCard, formatCsv } from "./metrics";
 
 type Activity = {
   id: string;
@@ -27,6 +27,8 @@ type PlayerStat = {
   position?: string | null;
 };
 
+const METRIC_PREFS_KEY = "dashboard.metricPrefs.v1";
+
 type DashboardProps = {
   activities: Activity[];
   hasFetched: boolean;
@@ -40,7 +42,35 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>([...ALL_METRIC_KEYS]);
+  const [metricsHydrated, setMetricsHydrated] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+
+  // Persist the user's metric selection + column order per-device. Load once on
+  // mount (avoids an SSR/hydration mismatch), then save on every change.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(METRIC_PREFS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const valid = parsed.filter((k): k is MetricKey => ALL_METRIC_KEYS.includes(k));
+          if (valid.length > 0) setSelectedMetrics(valid);
+        }
+      }
+    } catch {
+      // ignore malformed/unavailable storage
+    }
+    setMetricsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!metricsHydrated) return;
+    try {
+      localStorage.setItem(METRIC_PREFS_KEY, JSON.stringify(selectedMetrics));
+    } catch {
+      // ignore unavailable storage (e.g. private mode)
+    }
+  }, [selectedMetrics, metricsHydrated]);
 
   useEffect(() => {
     if (activities.length > 0) {
@@ -111,7 +141,7 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
     if (!squadSummary) return [];
     return [
       { label: "Players", text: String(squadSummary.players) },
-      ...orderMetrics(selectedMetrics).map((m) => ({
+      ...pickMetrics(selectedMetrics).map((m) => ({
         label: m.cardLabel,
         text: formatCard(m, squadSummary.averages[m.key]),
       })),
@@ -120,7 +150,7 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
 
   function exportCSV() {
     const activity = activities.find((a: Activity) => a.id === selectedActivityId);
-    const cols = orderMetrics(selectedMetrics);
+    const cols = pickMetrics(selectedMetrics);
     const headers = ["Player", "Position", ...cols.map((m) => m.tableLabel)];
     const rows = filteredSessions.map((s) => [
       s.athlete_name,
@@ -272,7 +302,7 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
         {sessionsLoading ? (
           <p className="text-[var(--bp-muted)] text-sm">Loading session data…</p>
         ) : (
-          <SessionTable sessions={filteredSessions} visibleMetrics={selectedMetrics} />
+          <SessionTable sessions={filteredSessions} visibleMetrics={selectedMetrics} onReorder={setSelectedMetrics} />
         )}
       </div>
     </div>
