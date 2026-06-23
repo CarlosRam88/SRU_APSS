@@ -37,7 +37,7 @@ export default function Home() {
   const [showWarning, setShowWarning] = useState(false);
   const [selectedDayCodes, setSelectedDayCodes] = useState<string[]>([]);
 
-  const ALLOWED_TEAMS = ["Scotland U18", "Scotland U20", "Scotland U20 Female", "Scotland7s", "ScottishRU", "SW Performance Squad"];
+  const ALLOWED_TEAMS = ["Scotland U18", "Scotland U20", "Scotland7s", "ScottishRU", "SW Performance Squad", "National Academy - Women"];
 
   useEffect(() => {
     fetch("/api/teams")
