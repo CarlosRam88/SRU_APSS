@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import ActivityDropdown from "./ActivityDropdown";
 import SessionTable from "./SessionTable";
 import MetricSelector from "./MetricSelector";
-import { MetricKey, ALL_METRIC_KEYS, METRICS, pickMetrics, formatCard, formatCsv } from "./metrics";
+import { MetricKey, ALL_METRIC_KEYS, METRICS, SortColumn, pickMetrics, sortPlayers, formatCard, formatCsv } from "./metrics";
 
 type Activity = {
   id: string;
@@ -43,7 +43,27 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
   const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>([...ALL_METRIC_KEYS]);
   const [metricsHydrated, setMetricsHydrated] = useState(false);
+  const [sortColumn, setSortColumn] = useState<SortColumn>("total_distance");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [pdfLoading, setPdfLoading] = useState(false);
+
+  function handleSort(column: SortColumn) {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(column);
+      setSortDirection(column === "athlete_name" ? "asc" : "desc");
+    }
+  }
+
+  // If the active sort column is a metric that's no longer selected, fall back to
+  // the first visible metric (or the player name).
+  useEffect(() => {
+    if (sortColumn !== "athlete_name" && !selectedMetrics.includes(sortColumn)) {
+      setSortColumn(selectedMetrics[0] ?? "athlete_name");
+      setSortDirection("desc");
+    }
+  }, [selectedMetrics, sortColumn]);
 
   // Persist the user's metric selection + column order per-device. Load once on
   // mount (avoids an SSR/hydration mismatch), then save on every change.
@@ -124,6 +144,12 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
     return sessions.filter((s) => s.position && selectedPositions.includes(s.position));
   }, [sessions, selectedPositions]);
 
+  // Single sorted order shared by the table, CSV and PDF.
+  const sortedSessions = useMemo(
+    () => sortPlayers(filteredSessions, sortColumn, sortDirection),
+    [filteredSessions, sortColumn, sortDirection]
+  );
+
   const squadSummary = useMemo(() => {
     const rows = filteredSessions;
     if (rows.length === 0) return null;
@@ -152,7 +178,7 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
     const activity = activities.find((a: Activity) => a.id === selectedActivityId);
     const cols = pickMetrics(selectedMetrics);
     const headers = ["Player", "Position", ...cols.map((m) => m.tableLabel)];
-    const rows = filteredSessions.map((s) => [
+    const rows = sortedSessions.map((s) => [
       s.athlete_name,
       s.position ?? "",
       ...cols.map((m) => {
@@ -192,7 +218,7 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
         players: squadSummary?.players ?? filteredSessions.length,
         averages: squadSummary?.averages ?? null,
         metrics: selectedMetrics,
-        rows: filteredSessions,
+        rows: sortedSessions,
         logoUrl: "/Scotlandlogo.png",
       });
 
@@ -302,7 +328,14 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
         {sessionsLoading ? (
           <p className="text-[var(--bp-muted)] text-sm">Loading session data…</p>
         ) : (
-          <SessionTable sessions={filteredSessions} visibleMetrics={selectedMetrics} onReorder={setSelectedMetrics} />
+          <SessionTable
+            sessions={sortedSessions}
+            visibleMetrics={selectedMetrics}
+            sortColumn={sortColumn}
+            sortDirection={sortDirection}
+            onSort={handleSort}
+            onReorder={setSelectedMetrics}
+          />
         )}
       </div>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import {
   DndContext, closestCenter, MouseSensor, TouchSensor, KeyboardSensor,
   useSensor, useSensors, DragEndEvent,
@@ -12,7 +12,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
 import {
-  MetricKey, MetricDef, pickMetrics, formatTable, buildMedalMap,
+  MetricKey, MetricDef, SortColumn, pickMetrics, formatTable, buildMedalMap,
 } from "./metrics";
 
 type Player = {
@@ -30,12 +30,14 @@ type Player = {
 };
 
 type SessionTableProps = {
+  // Already sorted by the parent (so the table, CSV and PDF share one order).
   sessions: Player[];
   visibleMetrics: MetricKey[];
+  sortColumn: SortColumn;
+  sortDirection: "asc" | "desc";
+  onSort: (column: SortColumn) => void;
   onReorder: (next: MetricKey[]) => void;
 };
-
-type SortColumn = "athlete_name" | MetricKey;
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
@@ -85,11 +87,10 @@ function SortableHeader({
   );
 }
 
-export default function SessionTable({ sessions, visibleMetrics, onReorder }: SessionTableProps) {
+export default function SessionTable({
+  sessions, visibleMetrics, sortColumn, sortDirection, onSort, onReorder,
+}: SessionTableProps) {
   const columns = useMemo(() => pickMetrics(visibleMetrics), [visibleMetrics]);
-
-  const [sortColumn, setSortColumn] = useState<SortColumn>("total_distance");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const justDragged = useRef(false);
 
   const sensors = useSensors(
@@ -97,15 +98,6 @@ export default function SessionTable({ sessions, visibleMetrics, onReorder }: Se
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
-
-  // If the active sort column is a metric that's no longer visible, fall back to
-  // the first visible metric (or the player name).
-  useEffect(() => {
-    if (sortColumn !== "athlete_name" && !visibleMetrics.includes(sortColumn)) {
-      setSortColumn(visibleMetrics[0] ?? "athlete_name");
-      setSortDirection("desc");
-    }
-  }, [visibleMetrics, sortColumn]);
 
   // Medal ranking per visible numeric column (0=gold, 1=silver, 2=bronze).
   const medalMap = useMemo(
@@ -117,25 +109,6 @@ export default function SessionTable({ sessions, visibleMetrics, onReorder }: Se
     if (value === undefined || value === 0) return "";
     const rank = medalMap[col]?.get(value);
     return rank !== undefined ? MEDALS[rank] : "";
-  }
-
-  const sortedSessions = useMemo(() => {
-    const sorted = [...sessions].sort((a, b) => {
-      if (sortColumn === "athlete_name") {
-        return (a.athlete_name ?? "").localeCompare(b.athlete_name ?? "");
-      }
-      return ((a[sortColumn] as number) ?? 0) - ((b[sortColumn] as number) ?? 0);
-    });
-    return sortDirection === "asc" ? sorted : sorted.reverse();
-  }, [sessions, sortColumn, sortDirection]);
-
-  function handleSort(column: SortColumn) {
-    if (sortColumn === column) {
-      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setSortColumn(column);
-      setSortDirection(column === "athlete_name" ? "asc" : "desc");
-    }
   }
 
   function handleDragStart() {
@@ -175,7 +148,7 @@ export default function SessionTable({ sessions, visibleMetrics, onReorder }: Se
             <tr className="bg-[var(--bp-bg)]">
               <th
                 className={`${thClass} cursor-pointer`}
-                onClick={() => handleSort("athlete_name")}
+                onClick={() => onSort("athlete_name")}
               >
                 Player<SortArrow active={sortColumn === "athlete_name"} direction={sortDirection} />
               </th>
@@ -186,7 +159,7 @@ export default function SessionTable({ sessions, visibleMetrics, onReorder }: Se
                     col={col}
                     sortColumn={sortColumn}
                     sortDirection={sortDirection}
-                    onSort={handleSort}
+                    onSort={onSort}
                     justDragged={justDragged}
                   />
                 ))}
@@ -194,7 +167,7 @@ export default function SessionTable({ sessions, visibleMetrics, onReorder }: Se
             </tr>
           </thead>
           <tbody>
-            {sortedSessions.map((player, index) => (
+            {sessions.map((player, index) => (
               <tr key={index} className="hover:bg-[var(--bp-border)]/20 transition-colors">
                 <td className={`${tdClass} text-[var(--bp-text)] font-medium`}>
                   {player.athlete_name}

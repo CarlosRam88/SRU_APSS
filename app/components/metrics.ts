@@ -73,6 +73,25 @@ export function formatCsv(m: MetricDef, v: number): string {
   return fmtNum(v, m.csvDecimals);
 }
 
+export type SortColumn = "athlete_name" | MetricKey;
+
+// Sort player rows by a column. Shared by the table, CSV and PDF so all three
+// present players in the same order. Generic over any row carrying athlete_name
+// and (optionally) the metric fields.
+export function sortPlayers<T extends { athlete_name: string } & Partial<Record<MetricKey, number>>>(
+  rows: T[],
+  sortColumn: SortColumn,
+  sortDirection: "asc" | "desc",
+): T[] {
+  const sorted = [...rows].sort((a, b) => {
+    if (sortColumn === "athlete_name") {
+      return (a.athlete_name ?? "").localeCompare(b.athlete_name ?? "");
+    }
+    return ((a[sortColumn] ?? 0) - (b[sortColumn] ?? 0));
+  });
+  return sortDirection === "asc" ? sorted : sorted.reverse();
+}
+
 // For each key, map value -> medal rank (0=gold, 1=silver, 2=bronze) over the top-3
 // distinct positive values. Shared by the session table (emoji) and PDF (colour tint).
 export function buildMedalMap(
