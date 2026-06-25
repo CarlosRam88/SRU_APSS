@@ -75,21 +75,49 @@ export function formatCsv(m: MetricDef, v: number): string {
 
 export type SortColumn = "athlete_name" | MetricKey;
 
-// Sort player rows by a column. Shared by the table, CSV and PDF so all three
-// present players in the same order. Generic over any row carrying athlete_name
-// and (optionally) the metric fields.
-export function sortPlayers<T extends { athlete_name: string } & Partial<Record<MetricKey, number>>>(
+// Rugby positional-unit order for "Sort by position" (forwards through backs).
+export const POSITION_ORDER = [
+  "Prop", "Hooker", "Second Row", "Back Row", "Scrum Half", "Stand Off", "Centre", "Back 3",
+];
+
+const POSITION_RANK: Record<string, number> = {};
+POSITION_ORDER.forEach((p, i) => { POSITION_RANK[p.toLowerCase()] = i; });
+
+// Rank a position name against POSITION_ORDER. Catapult returns names with
+// inconsistent trailing spaces, so normalise first. Unlisted named positions
+// (e.g. "Half Back") sort just after the listed ones; missing positions go last.
+export function positionRank(pos: string | null | undefined): number {
+  if (!pos) return POSITION_ORDER.length + 1;
+  const r = POSITION_RANK[pos.trim().toLowerCase()];
+  return r === undefined ? POSITION_ORDER.length : r;
+}
+
+// Sort player rows. Shared by the table, CSV and PDF so all three present players
+// in the same order. When byPosition is set, players are grouped into POSITION_ORDER
+// first and the column sort becomes the within-group (secondary) order. Direction is
+// folded into the comparator so the position grouping is never reversed.
+export function sortPlayers<
+  T extends { athlete_name: string; position?: string | null } & Partial<Record<MetricKey, number>>
+>(
   rows: T[],
   sortColumn: SortColumn,
   sortDirection: "asc" | "desc",
+  byPosition = false,
 ): T[] {
-  const sorted = [...rows].sort((a, b) => {
+  const dir = sortDirection === "asc" ? 1 : -1;
+  const compareColumn = (a: T, b: T): number => {
     if (sortColumn === "athlete_name") {
-      return (a.athlete_name ?? "").localeCompare(b.athlete_name ?? "");
+      return (a.athlete_name ?? "").localeCompare(b.athlete_name ?? "") * dir;
     }
-    return ((a[sortColumn] ?? 0) - (b[sortColumn] ?? 0));
+    return ((a[sortColumn] ?? 0) - (b[sortColumn] ?? 0)) * dir;
+  };
+  return [...rows].sort((a, b) => {
+    if (byPosition) {
+      const pr = positionRank(a.position) - positionRank(b.position);
+      if (pr !== 0) return pr;
+    }
+    return compareColumn(a, b);
   });
-  return sortDirection === "asc" ? sorted : sorted.reverse();
 }
 
 // For each key, map value -> medal rank (0=gold, 1=silver, 2=bronze) over the top-3

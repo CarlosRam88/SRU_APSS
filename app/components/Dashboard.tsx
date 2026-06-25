@@ -45,6 +45,7 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
   const [metricsHydrated, setMetricsHydrated] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("total_distance");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [positionSort, setPositionSort] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
 
   function handleSort(column: SortColumn) {
@@ -146,8 +147,8 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
 
   // Single sorted order shared by the table, CSV and PDF.
   const sortedSessions = useMemo(
-    () => sortPlayers(filteredSessions, sortColumn, sortDirection),
-    [filteredSessions, sortColumn, sortDirection]
+    () => sortPlayers(filteredSessions, sortColumn, sortDirection, positionSort),
+    [filteredSessions, sortColumn, sortDirection, positionSort]
   );
 
   const squadSummary = useMemo(() => {
@@ -302,10 +303,19 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
                   onClick={() => togglePosition(pos)}
                   className={`${btnBase} ${selectedPositions.includes(pos) ? btnActive : btnInactive}`}
                 >
-                  {pos}
+                  {pos.trim()}
                 </button>
               ))}
             </div>
+          )}
+          {allPositions.length > 0 && (
+            <button
+              onClick={() => setPositionSort((v) => !v)}
+              className={`${btnBase} ${positionSort ? btnActive : btnInactive}`}
+              title="Group players by position (Prop → Back 3); the active column sorts within each position"
+            >
+              {positionSort ? "✓ " : ""}Sort by position
+            </button>
           )}
           {filteredSessions.length > 0 && (
             <div className="ml-auto flex gap-2">
