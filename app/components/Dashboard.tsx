@@ -289,7 +289,22 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
         <div className="flex flex-wrap items-center gap-4 mb-4">
           <h2 className="text-sm uppercase tracking-widest text-[var(--bp-muted)]">Player Stats</h2>
           {allPositions.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 items-center">
+            <button
+              onClick={() => setPositionSort((v) => !v)}
+              aria-pressed={positionSort}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-md border transition-colors ${
+                positionSort
+                  ? "border-[var(--bp-accent)] text-[var(--bp-accent)] bg-[var(--bp-accent)]/15"
+                  : "border-[var(--bp-border)] text-[var(--bp-text)] hover:border-[var(--bp-accent)]/60 hover:text-[var(--bp-accent)]"
+              }`}
+              title="Group players by position (Prop → Back 3); the active column sorts within each position"
+            >
+              <span aria-hidden className="text-sm leading-none">⬍</span>
+              Sort by position
+            </button>
+          )}
+          {allPositions.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 items-center pl-4 border-l border-[var(--bp-border)]">
               <span className="text-xs text-[var(--bp-muted)] uppercase tracking-wider mr-1">Position:</span>
               <button
                 onClick={() => setSelectedPositions([])}
@@ -307,15 +322,6 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
                 </button>
               ))}
             </div>
-          )}
-          {allPositions.length > 0 && (
-            <button
-              onClick={() => setPositionSort((v) => !v)}
-              className={`${btnBase} ${positionSort ? btnActive : btnInactive}`}
-              title="Group players by position (Prop → Back 3); the active column sorts within each position"
-            >
-              {positionSort ? "✓ " : ""}Sort by position
-            </button>
           )}
           {filteredSessions.length > 0 && (
             <div className="ml-auto flex gap-2">
