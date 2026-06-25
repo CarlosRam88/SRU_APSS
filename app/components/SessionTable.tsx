@@ -12,7 +12,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
 import {
-  MetricKey, MetricDef, SortColumn, pickMetrics, formatTable, buildMedalMap,
+  MetricKey, MetricDef, SortColumn, pickMetrics, formatTable, buildMedalMap, positionRank,
 } from "./metrics";
 
 type Player = {
@@ -37,6 +37,8 @@ type SessionTableProps = {
   sortDirection: "asc" | "desc";
   onSort: (column: SortColumn) => void;
   onReorder: (next: MetricKey[]) => void;
+  // When true, rows are grouped by position; draw a divider at each group boundary.
+  groupByPosition: boolean;
 };
 
 const MEDALS = ["🥇", "🥈", "🥉"];
@@ -88,7 +90,7 @@ function SortableHeader({
 }
 
 export default function SessionTable({
-  sessions, visibleMetrics, sortColumn, sortDirection, onSort, onReorder,
+  sessions, visibleMetrics, sortColumn, sortDirection, onSort, onReorder, groupByPosition,
 }: SessionTableProps) {
   const columns = useMemo(() => pickMetrics(visibleMetrics), [visibleMetrics]);
   const justDragged = useRef(false);
@@ -167,34 +169,43 @@ export default function SessionTable({
             </tr>
           </thead>
           <tbody>
-            {sessions.map((player, index) => (
-              <tr key={index} className="hover:bg-[var(--bp-border)]/20 transition-colors">
-                <td className={`${tdClass} text-[var(--bp-text)] font-medium`}>
-                  {player.athlete_name}
-                  {player.position && (
-                    <span className="ml-2 text-[10px] text-[var(--bp-muted)] uppercase tracking-wider">
-                      {player.position}
-                    </span>
-                  )}
-                </td>
-                {columns.map((col) => {
-                  const value = player[col.key] as number | undefined;
-                  return (
-                    <td
-                      key={col.key}
-                      className={`${tdClass} ${col.accent ? "text-[var(--bp-accent)]" : "text-[var(--bp-text)]"}`}
-                    >
-                      {value !== undefined ? (
-                        <>
-                          {formatTable(col, value)}
-                          <span className="ml-1">{getMedal(col.key, value)}</span>
-                        </>
-                      ) : "—"}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+            {sessions.map((player, index) => {
+              // Brighter cyan rule + a little breathing room where a new position group starts.
+              const startsGroup =
+                groupByPosition && index > 0 &&
+                positionRank(player.position) !== positionRank(sessions[index - 1].position);
+              const divider = startsGroup
+                ? " [&>td]:border-t-2 [&>td]:border-t-[var(--bp-accent)]/60 [&>td]:pt-5"
+                : "";
+              return (
+                <tr key={index} className={`hover:bg-[var(--bp-border)]/20 transition-colors${divider}`}>
+                  <td className={`${tdClass} text-[var(--bp-text)] font-medium`}>
+                    {player.athlete_name}
+                    {player.position && (
+                      <span className="ml-2 text-[10px] text-[var(--bp-muted)] uppercase tracking-wider">
+                        {player.position.trim()}
+                      </span>
+                    )}
+                  </td>
+                  {columns.map((col) => {
+                    const value = player[col.key] as number | undefined;
+                    return (
+                      <td
+                        key={col.key}
+                        className={`${tdClass} ${col.accent ? "text-[var(--bp-accent)]" : "text-[var(--bp-text)]"}`}
+                      >
+                        {value !== undefined ? (
+                          <>
+                            {formatTable(col, value)}
+                            <span className="ml-1">{getMedal(col.key, value)}</span>
+                          </>
+                        ) : "—"}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

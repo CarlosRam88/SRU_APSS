@@ -351,6 +351,7 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
             sortDirection={sortDirection}
             onSort={handleSort}
             onReorder={setSelectedMetrics}
+            groupByPosition={positionSort}
           />
         )}
       </div>
