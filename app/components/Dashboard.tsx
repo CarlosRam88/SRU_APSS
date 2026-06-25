@@ -221,6 +221,7 @@ export default function Dashboard({ activities, hasFetched, loading, onActivityC
         metrics: selectedMetrics,
         rows: sortedSessions,
         logoUrl: "/Scotlandlogo.png",
+        groupByPosition: positionSort,
       });
 
       const url = URL.createObjectURL(blob);

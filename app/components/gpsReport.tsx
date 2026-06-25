@@ -11,7 +11,8 @@ import {
   Document, Page, View, Text, Image, StyleSheet, pdf,
 } from "@react-pdf/renderer";
 import {
-  MetricKey, pickMetrics, formatTable, formatCard, buildMedalMap,
+  MetricKey, MetricDef, pickMetrics, formatTable, formatCard, buildMedalMap,
+  positionRank, POSITION_ORDER,
 } from "./metrics";
 
 // Palette — mirrors :root in globals.css
@@ -54,6 +55,8 @@ export type GpsReportProps = {
   metrics: MetricKey[];
   rows: ReportRow[];
   logoUrl: string;
+  // When true, render one sub-table per position group (kept intact across page breaks).
+  groupByPosition: boolean;
 };
 
 const styles = StyleSheet.create({
@@ -81,6 +84,14 @@ const styles = StyleSheet.create({
   cardValue: { fontSize: 12, fontFamily: "Helvetica-Bold", color: C.accent },
 
   sectionTitle: { fontSize: 8, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 },
+  // A position sub-table: heading + its own table, kept together across page breaks.
+  group: { marginBottom: 10 },
+  groupHeading: {
+    fontSize: 9, fontFamily: "Helvetica-Bold", color: C.accent,
+    textTransform: "uppercase", letterSpacing: 0.5,
+    marginBottom: 3, paddingBottom: 2,
+    borderBottomWidth: 1.5, borderBottomColor: C.accent,
+  },
   table: { borderWidth: 1, borderColor: C.border, borderRadius: 5, overflow: "hidden" },
   headerRow: { flexDirection: "row", backgroundColor: C.bg, borderBottomWidth: 1, borderBottomColor: C.border },
   row: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: C.border },
@@ -115,8 +126,69 @@ function GridLayer() {
   return <View style={styles.gridLayer} fixed>{vLines}{hLines}</View>;
 }
 
+// Column headers (Player + each metric) — shared by the single table and sub-tables.
+function HeaderCells({ columns }: { columns: MetricDef[] }) {
+  return (
+    <>
+      <Text style={[styles.th, styles.playerCell]}>Player</Text>
+      {columns.map((col) => (
+        <Text key={col.key} style={[styles.th, styles.numCell]}>{col.tableLabel}</Text>
+      ))}
+    </>
+  );
+}
+
+type MedalMap = Record<string, Map<number, number>>;
+
+function DataRow({ player, columns, medalMap }: { player: ReportRow; columns: MetricDef[]; medalMap: MedalMap }) {
+  return (
+    <View style={styles.row} wrap={false}>
+      <View style={[styles.td, styles.playerCell]}>
+        <Text style={styles.playerName}>{player.athlete_name}</Text>
+        {player.position ? <Text style={styles.playerPos}>{player.position.trim()}</Text> : null}
+      </View>
+      {columns.map((col) => {
+        const v = player[col.key] as number | undefined;
+        if (v === undefined) {
+          return <Text key={col.key} style={[styles.td, styles.numCell, { color: C.muted }]}>—</Text>;
+        }
+        const rank = v > 0 ? medalMap[col.key]?.get(v) : undefined;
+        const color = rank !== undefined ? MEDAL[rank] : col.accent ? C.accent : C.text;
+        return (
+          <Text key={col.key} style={[styles.td, styles.numCell, { color }]}>
+            {formatTable(col, v)}
+          </Text>
+        );
+      })}
+    </View>
+  );
+}
+
+type PositionGroup = { rank: number; label: string; rows: ReportRow[] };
+
+// Split already-position-sorted rows into contiguous groups (matches the on-screen
+// dividers). Listed positions use their canonical label; unlisted named positions
+// keep their own name; missing positions become "No Position".
+function groupByPositionRank(rows: ReportRow[]): PositionGroup[] {
+  const groups: PositionGroup[] = [];
+  for (const r of rows) {
+    const rank = positionRank(r.position);
+    const last = groups[groups.length - 1];
+    if (last && last.rank === rank) {
+      last.rows.push(r);
+    } else {
+      const label =
+        rank < POSITION_ORDER.length ? POSITION_ORDER[rank]
+        : rank === POSITION_ORDER.length ? (r.position?.trim() || "Other")
+        : "No Position";
+      groups.push({ rank, label, rows: [r] });
+    }
+  }
+  return groups;
+}
+
 function GpsReport(props: GpsReportProps) {
-  const { title, activityName, activityDate, positionsLabel, generatedAt, players, averages, metrics, rows, logoUrl } = props;
+  const { title, activityName, activityDate, positionsLabel, generatedAt, players, averages, metrics, rows, logoUrl, groupByPosition } = props;
   const columns = pickMetrics(metrics);
   const medalMap = buildMedalMap(rows, metrics);
 
@@ -157,35 +229,31 @@ function GpsReport(props: GpsReportProps) {
 
           {/* Player table */}
           <Text style={styles.sectionTitle}>Player Stats</Text>
-          <View style={styles.table}>
-            <View style={styles.headerRow} fixed>
-              <Text style={[styles.th, styles.playerCell]}>Player</Text>
-              {columns.map((col) => (
-                <Text key={col.key} style={[styles.th, styles.numCell]}>{col.tableLabel}</Text>
+          {groupByPosition ? (
+            groupByPositionRank(rows).map((group, gi) => (
+              // wrap={false} keeps each position sub-table from splitting across a page.
+              <View key={`${group.label}-${gi}`} style={styles.group} wrap={false}>
+                <Text style={styles.groupHeading}>{group.label}  ({group.rows.length})</Text>
+                <View style={styles.table}>
+                  <View style={styles.headerRow}>
+                    <HeaderCells columns={columns} />
+                  </View>
+                  {group.rows.map((r, i) => (
+                    <DataRow key={i} player={r} columns={columns} medalMap={medalMap} />
+                  ))}
+                </View>
+              </View>
+            ))
+          ) : (
+            <View style={styles.table}>
+              <View style={styles.headerRow} fixed>
+                <HeaderCells columns={columns} />
+              </View>
+              {rows.map((r, i) => (
+                <DataRow key={i} player={r} columns={columns} medalMap={medalMap} />
               ))}
             </View>
-            {rows.map((r, i) => (
-              <View key={i} style={styles.row} wrap={false}>
-                <View style={[styles.td, styles.playerCell]}>
-                  <Text style={styles.playerName}>{r.athlete_name}</Text>
-                  {r.position ? <Text style={styles.playerPos}>{r.position}</Text> : null}
-                </View>
-                {columns.map((col) => {
-                  const v = r[col.key] as number | undefined;
-                  if (v === undefined) {
-                    return <Text key={col.key} style={[styles.td, styles.numCell, { color: C.muted }]}>—</Text>;
-                  }
-                  const rank = v > 0 ? medalMap[col.key]?.get(v) : undefined;
-                  const color = rank !== undefined ? MEDAL[rank] : col.accent ? C.accent : C.text;
-                  return (
-                    <Text key={col.key} style={[styles.td, styles.numCell, { color }]}>
-                      {formatTable(col, v)}
-                    </Text>
-                  );
-                })}
-              </View>
-            ))}
-          </View>
+          )}
         </View>
 
         <View style={styles.footer} fixed>
